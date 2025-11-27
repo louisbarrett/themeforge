@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ThemeForge — AI Color Theme Generator</title>
+    <!-- Prevent favicon 404 -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path fill='%2300f0ff' d='M16 2L2 9l14 7 14-7-14-7zM2 23l14 7 14-7M2 16l14 7 14-7' stroke='%2300f0ff' stroke-width='2' fill='none'/></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Ambient Background -->
+        <div class="ambient-bg">
+            <div class="gradient-orb orb-1"></div>
+            <div class="gradient-orb orb-2"></div>
+            <div class="gradient-orb orb-3"></div>
+        </div>
+
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo">
+                <svg class="logo-icon" viewBox="0 0 32 32" fill="none">
+                    <path d="M16 2L2 9L16 16L30 9L16 2Z" stroke="currentColor" stroke-width="2" fill="none"/>
+                    <path d="M2 23L16 30L30 23" stroke="currentColor" stroke-width="2"/>
+                    <path d="M2 16L16 23L30 16" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                <span class="logo-text">ThemeForge</span>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-ghost" id="settingsBtn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Left Panel: Prompt & Controls -->
+            <aside class="control-panel">
+                <div class="panel-section">
+                    <h2 class="section-title">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                            <path d="M2 17l10 5 10-5"/>
+                            <path d="M2 12l10 5 10-5"/>
+                        </svg>
+                        Theme Prompt
+                    </h2>
+                    <div class="prompt-container">
+                        <textarea id="promptInput" placeholder="Describe your ideal theme...&#10;&#10;Examples:&#10;• A warm sunset theme with orange and purple hues&#10;• Cyberpunk neon with electric blue and hot pink&#10;• Forest at dusk - deep greens and misty grays&#10;• Minimalist monochrome with subtle blue accents"></textarea>
+                        <div class="prompt-footer">
+                            <span class="char-count"><span id="charCount">0</span> / 500</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h2 class="section-title">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 6v6l4 2"/>
+                        </svg>
+                        Options
+                    </h2>
+                    <div class="options-grid">
+                        <div class="option-group">
+                            <label class="option-label">Base Theme</label>
+                            <div class="toggle-group">
+                                <button class="toggle-btn active" data-theme="dark">Dark</button>
+                                <button class="toggle-btn" data-theme="light">Light</button>
+                            </div>
+                        </div>
+                        <div class="option-group">
+                            <label class="option-label">Contrast</label>
+                            <div class="toggle-group">
+                                <button class="toggle-btn" data-contrast="low">Low</button>
+                                <button class="toggle-btn active" data-contrast="normal">Normal</button>
+                                <button class="toggle-btn" data-contrast="high">High</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h2 class="section-title">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/>
+                            <path d="M3 9h18"/>
+                            <path d="M9 21V9"/>
+                        </svg>
+                        API Settings
+                    </h2>
+                    <div class="settings-form">
+                        <div class="form-group">
+                            <label>OpenAI-Compatible Endpoint</label>
+                            <input type="text" id="ollamaUrl" value="http://localhost:11434" placeholder="http://localhost:11434">
+                            <small class="form-hint">Ollama, LM Studio, vLLM, or any OpenAI-compatible API</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Model</label>
+                            <div class="model-select-wrapper">
+                                <select id="modelSelect">
+                                    <option value="">Select a model...</option>
+                                </select>
+                                <button class="btn btn-icon" id="refreshModels" title="Refresh models">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M23 4v6h-6"/>
+                                        <path d="M1 20v-6h6"/>
+                                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Temperature <span class="value-display" id="tempValue">0.7</span></label>
+                            <input type="range" id="temperature" min="0" max="1" step="0.1" value="0.7">
+                        </div>
+                        <button class="btn btn-ghost btn-sm" id="resetSettings" title="Reset all settings to defaults">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                                <path d="M3 3v5h5"/>
+                            </svg>
+                            Reset Settings
+                        </button>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary btn-generate" id="generateBtn">
+                    <svg class="btn-icon-svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                    </svg>
+                    <span class="btn-text">Generate Theme</span>
+                    <div class="btn-loader">
+                        <div class="loader-spinner"></div>
+                    </div>
+                </button>
+
+                <div class="status-bar" id="statusBar">
+                    <div class="status-indicator"></div>
+                    <span class="status-text">Ready</span>
+                </div>
+            </aside>
+
+            <!-- Center: Canvas Preview -->
+            <section class="preview-section">
+                <div class="preview-header">
+                    <h2>Theme Preview</h2>
+                    <div class="preview-actions">
+                        <button class="btn btn-ghost btn-sm" id="randomizeBtn" title="Randomize prompt">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="2" y="2" width="8" height="8" rx="1"/>
+                                <rect x="14" y="2" width="8" height="8" rx="1"/>
+                                <rect x="2" y="14" width="8" height="8" rx="1"/>
+                                <rect x="14" y="14" width="8" height="8" rx="1"/>
+                            </svg>
+                        </button>
+                        <button class="btn btn-ghost btn-sm" id="fullscreenBtn" title="Fullscreen preview">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M8 3H5a2 2 0 0 0-2 2v3"/>
+                                <path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
+                                <path d="M3 16v3a2 2 0 0 0 2 2h3"/>
+                                <path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="canvas-container">
+                    <canvas id="themeCanvas"></canvas>
+                    <div class="canvas-overlay" id="canvasOverlay">
+                        <div class="overlay-content">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                                <path d="M2 17l10 5 10-5"/>
+                                <path d="M2 12l10 5 10-5"/>
+                            </svg>
+                            <p>Enter a prompt and generate your theme</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Panel: Color Palette & Export -->
+            <aside class="palette-panel">
+                <div class="panel-section">
+                    <h2 class="section-title">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 2a7 7 0 0 0 0 14 3.5 3.5 0 0 1 0 7 10 10 0 1 0 0-20z"/>
+                        </svg>
+                        Color Palette
+                    </h2>
+                    <div class="palette-grid" id="paletteGrid">
+                        <div class="palette-empty">
+                            <p>Generate a theme to see colors</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h2 class="section-title">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                            <polyline points="10 9 9 9 8 9"/>
+                        </svg>
+                        Theme Info
+                    </h2>
+                    <div class="theme-info" id="themeInfo">
+                        <div class="info-placeholder">
+                            <p>Theme details will appear here</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-section help-section">
+                    <details class="help-details">
+                        <summary class="section-title clickable">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                                <line x1="12" y1="17" x2="12.01" y2="17"/>
+                            </svg>
+                            Installation Guide
+                            <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"/>
+                            </svg>
+                        </summary>
+                        <div class="help-content">
+                            <div class="help-item">
+                                <h4>🚀 Direct Install (Recommended)</h4>
+                                <ol>
+                                    <li>Click <strong>"Install to Cursor"</strong> or <strong>"Install to VSCode"</strong></li>
+                                    <li>Select your extensions folder:
+                                        <code>~/.cursor/extensions</code> or
+                                        <code>~/.vscode/extensions</code>
+                                    </li>
+                                    <li>Restart your IDE</li>
+                                    <li>Open Command Palette (<kbd>⌘</kbd>+<kbd>⇧</kbd>+<kbd>P</kbd>)</li>
+                                    <li>Type "Color Theme" and select your theme</li>
+                                </ol>
+                            </div>
+                            <div class="help-item">
+                                <h4>📦 Manual Install (ZIP)</h4>
+                                <ol>
+                                    <li>Click <strong>"Download ZIP"</strong></li>
+                                    <li>Extract the ZIP file</li>
+                                    <li>Copy the folder to:
+                                        <code>~/.cursor/extensions/</code> or
+                                        <code>~/.vscode/extensions/</code>
+                                    </li>
+                                    <li>Restart and select your theme</li>
+                                </ol>
+                            </div>
+                            <div class="help-item help-paths">
+                                <h4>📁 Extension Paths</h4>
+                                <div class="path-grid">
+                                    <span class="path-label">Cursor:</span>
+                                    <code>~/.cursor/extensions/</code>
+                                    <span class="path-label">VSCode:</span>
+                                    <code>~/.vscode/extensions/</code>
+                                    <span class="path-label">Windows:</span>
+                                    <code>%USERPROFILE%\.cursor\extensions\</code>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+
+                <div class="panel-section export-section">
+                    <h2 class="section-title">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Install Theme
+                    </h2>
+                    <div class="export-buttons">
+                        <button class="btn btn-primary btn-install" id="installCursor" disabled>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 5v14M5 12l7 7 7-7"/>
+                            </svg>
+                            Install to Cursor
+                        </button>
+                        <button class="btn btn-secondary" id="installVscode" disabled>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 5v14M5 12l7 7 7-7"/>
+                            </svg>
+                            Install to VSCode
+                        </button>
+                    </div>
+                    
+                    <h2 class="section-title" style="margin-top: var(--space-md);">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Export
+                    </h2>
+                    <div class="export-buttons">
+                        <button class="btn btn-secondary" id="downloadZip" disabled>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            Download ZIP
+                        </button>
+                        <button class="btn btn-secondary" id="exportJson" disabled>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                            </svg>
+                            Raw JSON
+                        </button>
+                        <button class="btn btn-secondary" id="copyColors" disabled>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                            </svg>
+                            Copy Colors
+                        </button>
+                    </div>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- JSZip for creating extension packages -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    
+    <script src="theme-schema.js"></script>
+    <script src="canvas-renderer.js"></script>
+    <script src="ollama-client.js"></script>
+    <script src="theme-installer.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
+
