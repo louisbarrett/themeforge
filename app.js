@@ -601,11 +601,14 @@ class ThemeForgeApp {
         this.paletteGrid.innerHTML = colors.map(color => {
             const hex = palette[color.key] || '#888888';
             return `
-                <div class="color-item" data-color="${hex}" title="Click to copy">
-                    <div class="color-swatch" style="background-color: ${hex}"></div>
+                <div class="color-item" data-key="${color.key}" data-color="${hex}">
+                    <div class="color-swatch-wrapper">
+                        <div class="color-swatch" style="background-color: ${hex}"></div>
+                        <input type="color" class="color-picker-input" value="${hex}" data-key="${color.key}" title="Click to change color">
+                    </div>
                     <div class="color-info">
                         <span class="color-name">${color.name}</span>
-                        <span class="color-hex">${hex}</span>
+                        <input type="text" class="color-hex-input" value="${hex}" data-key="${color.key}" maxlength="7" title="Edit hex value">
                     </div>
                     <button class="color-copy" title="Copy color">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -617,14 +620,90 @@ class ThemeForgeApp {
             `;
         }).join('');
 
+        // Add event handlers for color editing
+        this.paletteGrid.querySelectorAll('.color-picker-input').forEach(picker => {
+            picker.addEventListener('input', (e) => {
+                this.updateColorFromPicker(e.target.dataset.key, e.target.value);
+            });
+        });
+
+        // Add event handlers for hex input editing
+        this.paletteGrid.querySelectorAll('.color-hex-input').forEach(input => {
+            input.addEventListener('input', (e) => {
+                let value = e.target.value;
+                if (!value.startsWith('#')) {
+                    value = '#' + value;
+                }
+                if (/^#[0-9A-Fa-f]{6}$/.test(value)) {
+                    this.updateColorFromPicker(e.target.dataset.key, value);
+                }
+            });
+            
+            input.addEventListener('blur', (e) => {
+                // Ensure valid hex on blur
+                let value = e.target.value;
+                if (!value.startsWith('#')) {
+                    value = '#' + value;
+                }
+                if (!/^#[0-9A-Fa-f]{6}$/.test(value)) {
+                    // Reset to current palette value
+                    const key = e.target.dataset.key;
+                    e.target.value = this.currentTheme?.palette?.[key] || '#888888';
+                }
+            });
+            
+            // Prevent click from propagating to parent
+            input.addEventListener('click', (e) => e.stopPropagation());
+        });
+
         // Add click handlers for copying
-        this.paletteGrid.querySelectorAll('.color-item').forEach(item => {
-            item.addEventListener('click', () => {
+        this.paletteGrid.querySelectorAll('.color-copy').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const item = btn.closest('.color-item');
                 const color = item.dataset.color;
                 navigator.clipboard.writeText(color);
                 this.showToast(`Copied ${color}`, 'success');
             });
         });
+    }
+
+    /**
+     * Update a color from the palette picker
+     */
+    updateColorFromPicker(key, value) {
+        if (!this.currentTheme) return;
+        
+        // Ensure palette exists
+        if (!this.currentTheme.palette) {
+            this.currentTheme.palette = ThemeSchema.extractPalette(this.currentTheme);
+        }
+        
+        // Update palette
+        this.currentTheme.palette[key] = value;
+        
+        // Rebuild full theme from palette
+        const fullTheme = ThemeSchema.expandPaletteToTheme(
+            this.currentTheme.palette,
+            this.currentTheme.name,
+            this.currentTheme.type
+        );
+        
+        // Update current theme
+        this.currentTheme.colors = fullTheme.colors;
+        this.currentTheme.tokenColors = fullTheme.tokenColors;
+        
+        // Update the UI
+        const colorItem = this.paletteGrid.querySelector(`[data-key="${key}"]`);
+        if (colorItem) {
+            colorItem.dataset.color = value;
+            colorItem.querySelector('.color-swatch').style.backgroundColor = value;
+            colorItem.querySelector('.color-picker-input').value = value;
+            colorItem.querySelector('.color-hex-input').value = value;
+        }
+        
+        // Re-render preview
+        this.renderer.render(this.currentTheme);
     }
 
     updateThemeInfo(theme) {
