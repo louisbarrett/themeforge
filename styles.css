@@ -289,6 +289,168 @@ body {
     font-family: var(--font-mono);
 }
 
+/* Image Upload Area */
+.image-upload-area {
+    position: relative;
+    min-height: 120px;
+    background: var(--bg-secondary);
+    border: 2px dashed var(--border-default);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    overflow: hidden;
+}
+
+.image-upload-area:hover {
+    border-color: var(--accent-primary);
+    background: rgba(0, 240, 255, 0.03);
+}
+
+.image-upload-area.drag-over {
+    border-color: var(--accent-primary);
+    background: var(--accent-primary-dim);
+    transform: scale(1.01);
+}
+
+.image-upload-area.has-image {
+    border-style: solid;
+    border-color: var(--border-strong);
+}
+
+.upload-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    padding: var(--space-lg);
+    color: var(--text-muted);
+    text-align: center;
+    transition: all var(--transition-fast);
+}
+
+.image-upload-area:hover .upload-placeholder {
+    color: var(--text-secondary);
+}
+
+.image-upload-area:hover .upload-placeholder svg {
+    color: var(--accent-primary);
+}
+
+.upload-placeholder svg {
+    opacity: 0.6;
+    transition: all var(--transition-fast);
+}
+
+.upload-placeholder p {
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin: 0;
+}
+
+.upload-hint {
+    font-size: 0.7rem;
+    opacity: 0.6;
+}
+
+.image-preview {
+    display: none;
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16/9;
+    max-height: 160px;
+}
+
+.image-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: calc(var(--radius-md) - 2px);
+}
+
+.btn-remove-image {
+    position: absolute;
+    top: var(--space-sm);
+    right: var(--space-sm);
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid var(--border-default);
+    color: var(--text-primary);
+    padding: var(--space-xs);
+    opacity: 0;
+    transition: all var(--transition-fast);
+}
+
+.image-preview:hover .btn-remove-image {
+    opacity: 1;
+}
+
+.btn-remove-image:hover {
+    background: var(--accent-error);
+    border-color: var(--accent-error);
+}
+
+/* Extracted Palette */
+.extracted-palette {
+    display: none;
+    flex-direction: column;
+    gap: var(--space-sm);
+    padding: var(--space-sm);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    margin-top: var(--space-sm);
+}
+
+.extracted-palette.visible {
+    display: flex;
+}
+
+.palette-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.palette-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
+
+.extracted-swatches {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.extracted-swatch {
+    position: relative;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: transform var(--transition-fast);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.extracted-swatch:hover {
+    transform: scale(1.15);
+    z-index: 1;
+}
+
+.swatch-label {
+    position: absolute;
+    bottom: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 6px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
 /* Options */
 .options-grid {
     display: flex;
@@ -930,10 +1092,6 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 /* Export Section */
-.export-section {
-    /* margin-top: auto; - removed since help section is now above */
-}
-
 .export-buttons {
     display: flex;
     flex-direction: column;

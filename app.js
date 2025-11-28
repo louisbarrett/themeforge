@@ -9,6 +9,7 @@ class ThemeForgeApp {
         this.renderer = new ThemeCanvasRenderer('themeCanvas');
         this.ollama = new OllamaClient();
         this.installer = new ThemeInstaller();
+        this.paletteExtractor = new ImagePaletteExtractor();
         
         // State
         this.currentTheme = null;
@@ -18,6 +19,13 @@ class ThemeForgeApp {
             baseTheme: 'dark',
             contrast: 'normal',
             temperature: 0.7
+        };
+        
+        // Image state
+        this.uploadedImage = {
+            file: null,
+            extractedColors: [],  // Extracted palette
+            dominant: null        // Dominant color
         };
 
         // Initialize UI
@@ -45,6 +53,17 @@ class ThemeForgeApp {
         // Options
         this.themeToggleBtns = document.querySelectorAll('[data-theme]');
         this.contrastToggleBtns = document.querySelectorAll('[data-contrast]');
+        
+        // Image upload elements
+        this.imageUploadArea = document.getElementById('imageUploadArea');
+        this.imageInput = document.getElementById('imageInput');
+        this.uploadPlaceholder = document.getElementById('uploadPlaceholder');
+        this.imagePreview = document.getElementById('imagePreview');
+        this.previewImage = document.getElementById('previewImage');
+        this.removeImageBtn = document.getElementById('removeImage');
+        this.extractedPalette = document.getElementById('extractedPalette');
+        this.extractedSwatches = document.getElementById('extractedSwatches');
+        this.useExtractedColorsBtn = document.getElementById('useExtractedColors');
         
         // Palette & Info
         this.paletteGrid = document.getElementById('paletteGrid');
@@ -162,6 +181,9 @@ class ThemeForgeApp {
             });
         });
 
+        // Image upload events
+        this.setupImageUploadListeners();
+
         // Install buttons
         this.installCursorBtn.addEventListener('click', () => this.installTheme('cursor'));
         this.installVscodeBtn.addEventListener('click', () => this.installTheme('vscode'));
@@ -188,6 +210,178 @@ class ThemeForgeApp {
         });
     }
 
+    /**
+     * Setup image upload event listeners
+     */
+    setupImageUploadListeners() {
+        // Click to upload
+        this.imageUploadArea.addEventListener('click', (e) => {
+            if (e.target === this.removeImageBtn || this.removeImageBtn.contains(e.target)) {
+                return; // Don't trigger upload when clicking remove
+            }
+            this.imageInput.click();
+        });
+
+        // File input change
+        this.imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                this.handleImageUpload(file);
+            }
+        });
+
+        // Drag and drop
+        this.imageUploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            this.imageUploadArea.classList.add('drag-over');
+        });
+
+        this.imageUploadArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            this.imageUploadArea.classList.remove('drag-over');
+        });
+
+        this.imageUploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            this.imageUploadArea.classList.remove('drag-over');
+            
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                this.handleImageUpload(file);
+            } else {
+                this.showToast('Please drop an image file', 'error');
+            }
+        });
+
+        // Remove image button
+        this.removeImageBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.clearUploadedImage();
+        });
+
+        // Use extracted colors button
+        this.useExtractedColorsBtn.addEventListener('click', () => {
+            if (this.uploadedImage.extractedColors.length > 0) {
+                // Add color info to prompt
+                const colorList = this.uploadedImage.extractedColors.slice(0, 5).join(', ');
+                const currentPrompt = this.promptInput.value.trim();
+                
+                if (!currentPrompt.includes('colors:')) {
+                    const newPrompt = currentPrompt 
+                        ? `${currentPrompt}\n\nBase colors: ${colorList}`
+                        : `Theme using these colors: ${colorList}`;
+                    this.promptInput.value = newPrompt;
+                    this.charCount.textContent = newPrompt.length;
+                    this.showToast('Colors added to prompt', 'success');
+                }
+            }
+        });
+    }
+
+    /**
+     * Handle image upload
+     */
+    async handleImageUpload(file) {
+        if (!file.type.startsWith('image/')) {
+            this.showToast('Please select an image file', 'error');
+            return;
+        }
+
+        // Check file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            this.showToast('Image too large. Maximum size is 10MB', 'error');
+            return;
+        }
+
+        this.setStatus('Processing image...', 'loading');
+
+        try {
+            // Extract palette from image
+            const result = await this.paletteExtractor.extractPalette(file, 8);
+            
+            this.uploadedImage = {
+                file: file,
+                extractedColors: result.colors,
+                dominant: result.dominant
+            };
+
+            // Show preview
+            this.showImagePreview(file);
+            
+            // Show extracted colors
+            this.showExtractedPalette(result.colors);
+            
+            this.setStatus('Image loaded! Colors extracted.', 'success');
+            this.showToast(`Extracted ${result.colors.length} colors from image`, 'success');
+
+        } catch (error) {
+            console.error('Image processing error:', error);
+            this.setStatus('Failed to process image', 'error');
+            this.showToast('Failed to process image: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Show image preview
+     */
+    showImagePreview(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            this.previewImage.src = e.target.result;
+            this.uploadPlaceholder.style.display = 'none';
+            this.imagePreview.style.display = 'flex';
+            this.imageUploadArea.classList.add('has-image');
+        };
+        reader.readAsDataURL(file);
+    }
+
+    /**
+     * Show extracted color palette
+     */
+    showExtractedPalette(colors) {
+        this.extractedSwatches.innerHTML = colors.map((color, idx) => `
+            <div class="extracted-swatch" 
+                 style="background-color: ${color}" 
+                 data-color="${color}"
+                 title="${color}">
+                ${idx === 0 ? '<span class="swatch-label">Dom</span>' : ''}
+            </div>
+        `).join('');
+
+        this.extractedPalette.classList.add('visible');
+
+        // Add click-to-copy on swatches
+        this.extractedSwatches.querySelectorAll('.extracted-swatch').forEach(swatch => {
+            swatch.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const color = swatch.dataset.color;
+                navigator.clipboard.writeText(color);
+                this.showToast(`Copied ${color}`, 'success');
+            });
+        });
+    }
+
+    /**
+     * Clear uploaded image
+     */
+    clearUploadedImage() {
+        this.uploadedImage = {
+            file: null,
+            extractedColors: [],
+            dominant: null
+        };
+
+        this.previewImage.src = '';
+        this.uploadPlaceholder.style.display = 'flex';
+        this.imagePreview.style.display = 'none';
+        this.imageUploadArea.classList.remove('has-image');
+        this.extractedPalette.classList.remove('visible');
+        this.extractedSwatches.innerHTML = '';
+        this.imageInput.value = '';
+
+        this.showToast('Image removed', 'success');
+    }
+
     async refreshModels() {
         const currentUrl = this.ollama.baseUrl;
         this.setStatus(`Connecting to ${currentUrl}...`, 'loading');
@@ -202,9 +396,11 @@ class ThemeForgeApp {
             models.forEach(model => {
                 const option = document.createElement('option');
                 option.value = model.id || model.name;
-                // Show size if available, otherwise just the name
+                
+                // Show size if available
                 const sizeStr = model.size ? ` (${this.formatSize(model.size)})` : '';
                 option.textContent = `${model.id || model.name}${sizeStr}`;
+                
                 this.modelSelect.appendChild(option);
             });
 
@@ -229,9 +425,11 @@ class ThemeForgeApp {
 
     async generateTheme() {
         const prompt = this.promptInput.value.trim();
+        const hasImage = this.uploadedImage.file !== null;
         
-        if (!prompt) {
-            this.showToast('Please enter a theme description', 'error');
+        // Allow generation with just an image (no text prompt required)
+        if (!prompt && !hasImage) {
+            this.showToast('Please enter a theme description or upload an image', 'error');
             this.promptInput.focus();
             return;
         }
@@ -249,7 +447,13 @@ class ThemeForgeApp {
         this.canvasOverlay.classList.add('hidden');
         
         this.renderer.startLoadingAnimation();
-        this.setStatus('Generating theme...', 'loading');
+        
+        // Update status based on whether we're using extracted colors
+        if (hasImage) {
+            this.setStatus('Generating theme from colors...', 'loading');
+        } else {
+            this.setStatus('Generating theme...', 'loading');
+        }
 
         try {
             const theme = await this.ollama.generateWithRetry(prompt, {
@@ -257,6 +461,7 @@ class ThemeForgeApp {
                 temperature: this.options.temperature,
                 baseTheme: this.options.baseTheme,
                 contrast: this.options.contrast,
+                extractedColors: hasImage ? this.uploadedImage.extractedColors : null,
                 onProgress: (progress) => {
                     if (progress.tokens % 10 === 0) {
                         this.setStatus(`Generating... ${progress.tokens} tokens`, 'loading');
@@ -272,7 +477,8 @@ class ThemeForgeApp {
             this.updateThemeInfo(theme);
             this.enableExportButtons();
             
-            this.setStatus('Theme generated successfully!', 'success');
+            const sourceInfo = hasImage ? ' (from extracted colors)' : '';
+            this.setStatus(`Theme generated successfully!${sourceInfo}`, 'success');
             this.showToast(`"${theme.name}" generated!`, 'success');
 
         } catch (error) {
@@ -680,4 +886,3 @@ window.clearThemeForgeSettings = function() {
     console.log('Settings cleared. Refresh the page to apply.');
     return 'Settings cleared. Refresh the page.';
 };
-

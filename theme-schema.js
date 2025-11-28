@@ -531,22 +531,63 @@ Rules:
 
     // Expand simplified palette to full VSCode theme
     expandPaletteToTheme(palette, name, type) {
-        const p = palette;
-        
         // Helper to create alpha variants
         const withAlpha = (hex, alpha) => {
+            if (!hex) return '#00000000';
             const a = Math.round(alpha * 255).toString(16).padStart(2, '0');
             return hex + a;
         };
 
         // Helper to lighten/darken colors
         const adjustBrightness = (hex, amount) => {
-            const num = parseInt(hex.slice(1), 16);
-            const r = Math.min(255, Math.max(0, (num >> 16) + amount));
-            const g = Math.min(255, Math.max(0, ((num >> 8) & 0x00FF) + amount));
-            const b = Math.min(255, Math.max(0, (num & 0x0000FF) + amount));
-            return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+            if (!hex) return type === 'dark' ? '#333333' : '#cccccc';
+            try {
+                const num = parseInt(hex.slice(1), 16);
+                const r = Math.min(255, Math.max(0, (num >> 16) + amount));
+                const g = Math.min(255, Math.max(0, ((num >> 8) & 0x00FF) + amount));
+                const b = Math.min(255, Math.max(0, (num & 0x0000FF) + amount));
+                return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+            } catch (e) {
+                return hex;
+            }
         };
+        
+        // Ensure all required palette colors exist with sensible defaults
+        const isDark = type === 'dark';
+        const bg = palette.background || (isDark ? '#1e1e1e' : '#ffffff');
+        const fg = palette.foreground || (isDark ? '#d4d4d4' : '#333333');
+        const accent = palette.accent || '#007acc';
+        
+        const p = {
+            background: bg,
+            backgroundAlt: palette.backgroundAlt || adjustBrightness(bg, isDark ? 15 : -10),
+            foreground: fg,
+            foregroundMuted: palette.foregroundMuted || adjustBrightness(fg, isDark ? -60 : 60),
+            accent: accent,
+            selection: palette.selection || (isDark ? '#264f78' : '#add6ff'),
+            border: palette.border || adjustBrightness(bg, isDark ? 30 : -30),
+            comment: palette.comment || (isDark ? '#6a9955' : '#008000'),
+            string: palette.string || (isDark ? '#ce9178' : '#a31515'),
+            number: palette.number || palette.string || (isDark ? '#b5cea8' : '#098658'),
+            keyword: palette.keyword || (isDark ? '#569cd6' : '#0000ff'),
+            function: palette.function || accent || '#dcdcaa',
+            class: palette.class || palette.keyword || '#4ec9b0',
+            variable: palette.variable || fg || '#9cdcfe',
+            parameter: palette.parameter || palette.variable || fg,
+            property: palette.property || palette.variable || '#9cdcfe',
+            operator: palette.operator || fg,
+            tag: palette.tag || palette.keyword || (isDark ? '#569cd6' : '#800000'),
+            attribute: palette.attribute || palette.property || (isDark ? '#9cdcfe' : '#ff0000'),
+            error: palette.error || '#f14c4c',
+            warning: palette.warning || '#cca700',
+            success: palette.success || '#89d185',
+            info: palette.info || accent || '#3794ff'
+        };
+        
+        // Fill in any remaining nulls with foreground
+        Object.keys(p).forEach(key => {
+            if (!p[key]) p[key] = fg;
+        });
 
         return {
             name: name,

@@ -61,6 +61,51 @@
                     </div>
                 </div>
 
+                <!-- Image Upload Section -->
+                <div class="panel-section">
+                    <h2 class="section-title">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                            <circle cx="8.5" cy="8.5" r="1.5"/>
+                            <polyline points="21 15 16 10 5 21"/>
+                        </svg>
+                        Image Source
+                    </h2>
+                    <div class="image-upload-area" id="imageUploadArea">
+                        <input type="file" id="imageInput" accept="image/*" hidden>
+                        <div class="upload-placeholder" id="uploadPlaceholder">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                            <p>Drop an image or click to upload</p>
+                            <span class="upload-hint">Extract colors for theme generation</span>
+                        </div>
+                        <div class="image-preview" id="imagePreview">
+                            <img id="previewImage" src="" alt="Preview">
+                            <button class="btn btn-icon btn-remove-image" id="removeImage" title="Remove image">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"/>
+                                    <line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="extracted-palette" id="extractedPalette">
+                        <div class="palette-header">
+                            <span class="palette-label">Extracted Colors</span>
+                            <button class="btn btn-ghost btn-sm" id="useExtractedColors" title="Use these colors as base">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20 6 9 17 4 12"/>
+                                </svg>
+                                Use
+                            </button>
+                        </div>
+                        <div class="extracted-swatches" id="extractedSwatches"></div>
+                    </div>
+                </div>
+
                 <div class="panel-section">
                     <h2 class="section-title">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -344,9 +389,9 @@
     
     <script src="theme-schema.js"></script>
     <script src="canvas-renderer.js"></script>
+    <script src="image-palette.js"></script>
     <script src="ollama-client.js"></script>
     <script src="theme-installer.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
-
