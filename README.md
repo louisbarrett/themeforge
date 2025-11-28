@@ -2,7 +2,7 @@
 
 **AI-Powered Color Theme Generator for VSCode & Cursor**
 
-ThemeForge is a browser-based tool that generates beautiful, cohesive color themes for your code editor using local AI models. Simply describe the aesthetic you want, and watch as your custom theme comes to life with a real-time VSCode-style preview.
+ThemeForge is a standalone desktop application that generates beautiful, cohesive color themes for your code editor using local AI models. Simply describe the aesthetic you want, and watch as your custom theme comes to life with a real-time VSCode-style preview.
 
 ![ThemeForge Interface](https://via.placeholder.com/800x450/0d0d14/00f0ff?text=ThemeForge+%E2%80%94+AI+Theme+Generator)
 
@@ -10,11 +10,13 @@ ThemeForge is a browser-based tool that generates beautiful, cohesive color them
 
 - **🤖 AI-Powered Generation** — Uses local LLMs via any OpenAI-compatible API (Ollama, LM Studio, vLLM, etc.)
 - **🎨 Real-Time Preview** — See your theme rendered in a realistic VSCode-style canvas preview
+- **🖼️ Image Color Extraction** — Upload an image to extract colors and generate matching themes
 - **🌗 Dark & Light Themes** — Generate themes with customizable base type and contrast levels
 - **⚡ Direct Installation** — Install themes directly to Cursor or VSCode with one click
 - **📦 Export Options** — Download as ready-to-use extension ZIP or raw JSON
 - **💾 Persistent Settings** — Your preferences are saved locally between sessions
 - **🎲 Inspiration Prompts** — Random prompt generator for creative ideas
+- **🖥️ Native Desktop App** — Runs as a standalone Electron application
 
 ## 🚀 Getting Started
 
@@ -26,9 +28,11 @@ ThemeForge is a browser-based tool that generates beautiful, cohesive color them
    - [vLLM](https://github.com/vllm-project/vllm) — Run with OpenAI-compatible endpoint
    - Or any other OpenAI-compatible API
 
-2. **A modern web browser** with JavaScript enabled
+2. **Node.js 18+** (for development)
 
 ### Installation
+
+#### Option 1: Run from Source
 
 1. Clone the repository:
    ```bash
@@ -36,29 +40,48 @@ ThemeForge is a browser-based tool that generates beautiful, cohesive color them
    cd themeforge
    ```
 
-2. Start a local web server:
+2. Install dependencies:
    ```bash
-   # Using Python
-   python -m http.server 8080
-
-   # Using Node.js
-   npx serve .
-
-   # Using PHP
-   php -S localhost:8080
+   npm install
    ```
 
-3. Open `http://localhost:8080` in your browser
+3. Start the application:
+   ```bash
+   npm start
+   ```
 
-4. Ensure your LLM server is running (default: `http://localhost:11434`)
+#### Option 2: Build Distributable
+
+1. Clone and install dependencies (see above)
+
+2. Build the application:
+   ```bash
+   # Build for your current platform
+   npm run dist
+
+   # Build for specific platforms
+   npm run dist:mac    # macOS (DMG + ZIP)
+   npm run dist:win    # Windows (NSIS installer + portable)
+   npm run dist:linux  # Linux (AppImage + DEB)
+   ```
+
+3. Find the built application in the `dist/` folder
+
+### Development Mode
+
+Run with DevTools enabled:
+```bash
+npm start -- --dev
+```
 
 ### Quick Start
 
-1. **Select a Model** — Click the refresh button to load available models from your LLM server
-2. **Enter a Prompt** — Describe your ideal theme (e.g., "Cyberpunk neon with electric blue and hot pink")
-3. **Adjust Options** — Choose dark/light base and contrast level
-4. **Generate** — Click "Generate Theme" or press `Cmd/Ctrl + Enter`
-5. **Install** — Click "Install to Cursor" or "Install to VSCode" to use your theme
+1. **Start your LLM server** — Ensure Ollama or your preferred server is running
+2. **Select a Model** — Click the refresh button to load available models
+3. **Enter a Prompt** — Describe your ideal theme (e.g., "Cyberpunk neon with electric blue and hot pink")
+4. **Adjust Options** — Choose dark/light base and contrast level
+5. **Generate** — Click "Generate Theme" or press `Cmd/Ctrl + Enter`
+6. **Install** — Click "Install to Cursor" or "Install to VSCode" to use your theme
 
 ## 🎨 Usage
 
@@ -78,6 +101,13 @@ The AI responds well to descriptive, evocative prompts:
 • "A nice theme" (too vague)
 • "Blue" (not enough context)
 ```
+
+### Using Image Colors
+
+1. Click or drag an image to the upload area
+2. ThemeForge extracts the dominant colors automatically
+3. Click "Use" to add colors to your prompt
+4. Generate to create a theme matching your image
 
 ### Theme Options
 
@@ -99,18 +129,17 @@ The AI responds well to descriptive, evocative prompts:
 
 1. Generate your theme
 2. Click **"Install to Cursor"** or **"Install to VSCode"**
-3. Select your extensions folder when prompted:
-   - **Cursor**: `~/.cursor/extensions`
-   - **VSCode**: `~/.vscode/extensions`
+3. ThemeForge automatically detects and installs to the correct extensions folder
 4. Restart your editor
 5. Open Command Palette (`Cmd/Ctrl + Shift + P`) → "Color Theme" → Select your theme
 
 ### Method 2: ZIP Download
 
 1. Click **"Download ZIP"**
-2. Extract the ZIP file
-3. Copy the extracted folder to your extensions directory
-4. Restart and select your theme
+2. Choose where to save the file
+3. Extract the ZIP file
+4. Copy the extracted folder to your extensions directory
+5. Restart and select your theme
 
 ### Extension Paths
 
@@ -123,24 +152,29 @@ The AI responds well to descriptive, evocative prompts:
 
 ```
 themeforge/
+├── main.js             # Electron main process
+├── preload.js          # Secure IPC bridge
 ├── index.html          # Main application HTML
 ├── app.js              # Application orchestrator
 ├── ollama-client.js    # OpenAI-compatible API client
 ├── canvas-renderer.js  # VSCode-style canvas preview
+├── image-palette.js    # Image color extraction
 ├── theme-installer.js  # Direct installation & ZIP export
 ├── theme-schema.js     # VSCode theme schema & prompts
 ├── styles.css          # Cyberpunk-noir styling
-└── README.md           # This file
+├── package.json        # Electron & build configuration
+└── assets/
+    └── icon.svg        # App icon source
 ```
 
 ## 🔧 Technical Details
 
-### Browser APIs Used
+### Electron Features
 
-- **Canvas API** — Renders the realistic editor preview
-- **File System Access API** — Enables direct theme installation (Chrome/Edge)
-- **Fetch API** — Communicates with the LLM server
-- **localStorage** — Persists user settings
+- **Secure Context Isolation** — Renderer process runs in isolated context
+- **Native File Dialogs** — Save files anywhere on your system
+- **Direct File System Access** — Install themes without browser restrictions
+- **Cross-Platform** — Works on macOS, Windows, and Linux
 
 ### Theme Generation
 
@@ -168,13 +202,14 @@ ThemeForge uses a simplified palette approach:
 3. **Specify color relationships** — "Warm tans with cool blue accents"
 4. **Lower temperature** for more predictable results, higher for experimentation
 5. **Click individual colors** in the palette to copy hex codes
+6. **Upload inspiration images** — Extract colors from photos, art, or screenshots
 
 ## 🐛 Troubleshooting
 
 ### "Failed to connect to API"
 - Ensure your LLM server is running
 - Check the endpoint URL is correct
-- Try adding `/v1` to the endpoint if using a non-Ollama server
+- The app automatically handles `/v1` suffix for OpenAI compatibility
 
 ### "No models found"
 - Your LLM server may not have any models installed
@@ -187,8 +222,27 @@ ThemeForge uses a simplified palette approach:
 
 ### Canvas preview is blank
 - Wait for generation to complete
-- Check browser console for errors
-- Ensure JavaScript is enabled
+- Check browser console for errors (View → Toggle Developer Tools)
+
+### App won't start
+- Ensure Node.js 18+ is installed
+- Try deleting `node_modules` and running `npm install` again
+
+## 🏗️ Building App Icons
+
+The source icon is at `assets/icon.svg`. To generate platform-specific icons:
+
+```bash
+# macOS - requires iconutil
+# Convert SVG to multiple PNG sizes, then:
+iconutil -c icns icon.iconset -o assets/icon.icns
+
+# Windows - use a tool like imagemagick or online converter
+convert icon.svg -resize 256x256 assets/icon.ico
+
+# Linux
+convert icon.svg -resize 512x512 assets/icon.png
+```
 
 ## 📄 License
 
@@ -196,7 +250,7 @@ MIT License — Feel free to use, modify, and distribute.
 
 ## 🙏 Acknowledgments
 
-- Built with vanilla JavaScript — no framework dependencies
+- Built with [Electron](https://electronjs.org) for cross-platform desktop support
 - Uses [JSZip](https://stuk.github.io/jszip/) for extension packaging
 - Fonts: [JetBrains Mono](https://www.jetbrains.com/lp/mono/) & [Outfit](https://fonts.google.com/specimen/Outfit)
 - Inspired by the VSCode theming community
@@ -207,4 +261,3 @@ MIT License — Feel free to use, modify, and distribute.
   <strong>Generated with ❤️ by ThemeForge</strong><br>
   <em>Transform your ideas into beautiful code themes</em>
 </p>
-

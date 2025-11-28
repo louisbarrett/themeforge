@@ -83,8 +83,42 @@ class ThemeForgeApp {
         this.fullscreenBtn = document.getElementById('fullscreenBtn');
         this.resetSettingsBtn = document.getElementById('resetSettings');
         
+        // App theme buttons
+        this.applyToAppBtn = document.getElementById('applyToApp');
+        this.resetAppThemeBtn = document.getElementById('resetAppTheme');
+        
+        // Library buttons
+        this.openLibraryBtn = document.getElementById('openLibrary');
+        this.createFromScratchBtn = document.getElementById('createFromScratch');
+        this.saveThemeToLibraryBtn = document.getElementById('saveThemeToLibrary');
+        this.editColorsBtn = document.getElementById('editColors');
+        
+        // Library modal
+        this.libraryModal = document.getElementById('libraryModal');
+        this.libraryGrid = document.getElementById('libraryGrid');
+        this.closeLibraryBtn = document.getElementById('closeLibrary');
+        this.importLibraryBtn = document.getElementById('importLibrary');
+        this.exportLibraryBtn = document.getElementById('exportLibrary');
+        
+        // Color editor modal
+        this.colorEditorModal = document.getElementById('colorEditorModal');
+        this.editorTitle = document.getElementById('editorTitle');
+        this.editThemeName = document.getElementById('editThemeName');
+        this.editorColors = document.getElementById('editorColors');
+        this.editorCanvas = document.getElementById('editorCanvas');
+        this.closeColorEditorBtn = document.getElementById('closeColorEditor');
+        this.cancelColorEditorBtn = document.getElementById('cancelColorEditor');
+        this.saveToLibraryBtn = document.getElementById('saveToLibrary');
+        this.applyEditedThemeBtn = document.getElementById('applyEditedTheme');
+        this.editThemeTypeBtns = document.querySelectorAll('[data-edit-theme]');
+        
         // Toast container
         this.toastContainer = document.getElementById('toastContainer');
+        
+        // Editor state
+        this.editorRenderer = null;
+        this.editingTheme = null;
+        this.editingPalette = null;
     }
 
     attachEventListeners() {
@@ -190,7 +224,7 @@ class ThemeForgeApp {
         
         // Export buttons
         this.downloadZipBtn.addEventListener('click', () => this.downloadThemeZip());
-        this.exportJsonBtn.addEventListener('click', () => this.exportJson());
+        this.exportJsonBtn.addEventListener('click', async () => await this.exportJson());
         this.copyColorsBtn.addEventListener('click', () => this.copyColors());
 
         // Randomize button
@@ -201,6 +235,53 @@ class ThemeForgeApp {
         
         // Reset settings button
         this.resetSettingsBtn.addEventListener('click', () => this.resetToDefaults());
+        
+        // App theme buttons
+        this.applyToAppBtn.addEventListener('click', () => this.applyThemeToApp());
+        this.resetAppThemeBtn.addEventListener('click', () => this.resetAppTheme());
+        
+        // Library buttons
+        this.openLibraryBtn.addEventListener('click', () => this.openLibrary());
+        this.closeLibraryBtn.addEventListener('click', () => this.closeLibrary());
+        this.createFromScratchBtn.addEventListener('click', () => this.createFromScratch());
+        this.saveThemeToLibraryBtn.addEventListener('click', () => this.saveCurrentThemeToLibrary());
+        this.editColorsBtn.addEventListener('click', () => this.openColorEditor());
+        this.importLibraryBtn.addEventListener('click', () => this.importLibrary());
+        this.exportLibraryBtn.addEventListener('click', () => this.exportLibrary());
+        
+        // Color editor buttons
+        this.closeColorEditorBtn.addEventListener('click', () => this.closeColorEditor());
+        this.cancelColorEditorBtn.addEventListener('click', () => this.closeColorEditor());
+        this.saveToLibraryBtn.addEventListener('click', () => this.saveEditedThemeToLibrary());
+        this.applyEditedThemeBtn.addEventListener('click', () => this.applyEditedTheme());
+        
+        // Theme type toggle in editor
+        this.editThemeTypeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.editThemeTypeBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                if (this.editingTheme) {
+                    this.editingTheme.type = btn.dataset.editTheme;
+                    this.updateEditorPreview();
+                }
+            });
+        });
+        
+        // Close modals on overlay click
+        this.libraryModal.addEventListener('click', (e) => {
+            if (e.target === this.libraryModal) this.closeLibrary();
+        });
+        this.colorEditorModal.addEventListener('click', (e) => {
+            if (e.target === this.colorEditorModal) this.closeColorEditor();
+        });
+        
+        // Close modals on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (this.libraryModal.classList.contains('active')) this.closeLibrary();
+                if (this.colorEditorModal.classList.contains('active')) this.closeColorEditor();
+            }
+        });
 
         // Window resize
         window.addEventListener('resize', () => {
@@ -208,6 +289,9 @@ class ThemeForgeApp {
                 this.renderer.render(this.currentTheme);
             }
         });
+        
+        // Load any saved app theme
+        this.loadAppliedTheme();
     }
 
     /**
@@ -517,11 +601,14 @@ class ThemeForgeApp {
         this.paletteGrid.innerHTML = colors.map(color => {
             const hex = palette[color.key] || '#888888';
             return `
-                <div class="color-item" data-color="${hex}" title="Click to copy">
-                    <div class="color-swatch" style="background-color: ${hex}"></div>
+                <div class="color-item" data-key="${color.key}" data-color="${hex}">
+                    <div class="color-swatch-wrapper">
+                        <div class="color-swatch" style="background-color: ${hex}"></div>
+                        <input type="color" class="color-picker-input" value="${hex}" data-key="${color.key}" title="Click to change color">
+                    </div>
                     <div class="color-info">
                         <span class="color-name">${color.name}</span>
-                        <span class="color-hex">${hex}</span>
+                        <input type="text" class="color-hex-input" value="${hex}" data-key="${color.key}" maxlength="7" title="Edit hex value">
                     </div>
                     <button class="color-copy" title="Copy color">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -533,14 +620,90 @@ class ThemeForgeApp {
             `;
         }).join('');
 
+        // Add event handlers for color editing
+        this.paletteGrid.querySelectorAll('.color-picker-input').forEach(picker => {
+            picker.addEventListener('input', (e) => {
+                this.updateColorFromPicker(e.target.dataset.key, e.target.value);
+            });
+        });
+
+        // Add event handlers for hex input editing
+        this.paletteGrid.querySelectorAll('.color-hex-input').forEach(input => {
+            input.addEventListener('input', (e) => {
+                let value = e.target.value;
+                if (!value.startsWith('#')) {
+                    value = '#' + value;
+                }
+                if (/^#[0-9A-Fa-f]{6}$/.test(value)) {
+                    this.updateColorFromPicker(e.target.dataset.key, value);
+                }
+            });
+            
+            input.addEventListener('blur', (e) => {
+                // Ensure valid hex on blur
+                let value = e.target.value;
+                if (!value.startsWith('#')) {
+                    value = '#' + value;
+                }
+                if (!/^#[0-9A-Fa-f]{6}$/.test(value)) {
+                    // Reset to current palette value
+                    const key = e.target.dataset.key;
+                    e.target.value = this.currentTheme?.palette?.[key] || '#888888';
+                }
+            });
+            
+            // Prevent click from propagating to parent
+            input.addEventListener('click', (e) => e.stopPropagation());
+        });
+
         // Add click handlers for copying
-        this.paletteGrid.querySelectorAll('.color-item').forEach(item => {
-            item.addEventListener('click', () => {
+        this.paletteGrid.querySelectorAll('.color-copy').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const item = btn.closest('.color-item');
                 const color = item.dataset.color;
                 navigator.clipboard.writeText(color);
                 this.showToast(`Copied ${color}`, 'success');
             });
         });
+    }
+
+    /**
+     * Update a color from the palette picker
+     */
+    updateColorFromPicker(key, value) {
+        if (!this.currentTheme) return;
+        
+        // Ensure palette exists
+        if (!this.currentTheme.palette) {
+            this.currentTheme.palette = ThemeSchema.extractPalette(this.currentTheme);
+        }
+        
+        // Update palette
+        this.currentTheme.palette[key] = value;
+        
+        // Rebuild full theme from palette
+        const fullTheme = ThemeSchema.expandPaletteToTheme(
+            this.currentTheme.palette,
+            this.currentTheme.name,
+            this.currentTheme.type
+        );
+        
+        // Update current theme
+        this.currentTheme.colors = fullTheme.colors;
+        this.currentTheme.tokenColors = fullTheme.tokenColors;
+        
+        // Update the UI
+        const colorItem = this.paletteGrid.querySelector(`[data-key="${key}"]`);
+        if (colorItem) {
+            colorItem.dataset.color = value;
+            colorItem.querySelector('.color-swatch').style.backgroundColor = value;
+            colorItem.querySelector('.color-picker-input').value = value;
+            colorItem.querySelector('.color-hex-input').value = value;
+        }
+        
+        // Re-render preview
+        this.renderer.render(this.currentTheme);
     }
 
     updateThemeInfo(theme) {
@@ -570,6 +733,9 @@ class ThemeForgeApp {
         this.downloadZipBtn.disabled = false;
         this.exportJsonBtn.disabled = false;
         this.copyColorsBtn.disabled = false;
+        this.applyToAppBtn.disabled = false;
+        this.editColorsBtn.disabled = false;
+        this.saveThemeToLibraryBtn.disabled = false;
     }
 
     /**
@@ -638,8 +804,8 @@ class ThemeForgeApp {
             const result = await this.installer.downloadAsZip(this.currentTheme);
             
             if (result.success) {
-                this.setStatus('ZIP downloaded!', 'success');
-                this.showToast(`Downloaded ${result.fileName}`, 'success');
+                this.setStatus('ZIP saved!', 'success');
+                this.showToast(`Saved ${result.fileName}`, 'success');
                 
                 // Show installation hint
                 setTimeout(() => {
@@ -647,9 +813,14 @@ class ThemeForgeApp {
                 }, 1500);
             }
         } catch (error) {
-            console.error('ZIP creation error:', error);
-            this.setStatus('Download failed', 'error');
-            this.showToast(`Failed to create ZIP: ${error.message}`, 'error');
+            if (error.message === 'Save cancelled') {
+                this.setStatus('Save cancelled', 'error');
+                this.showToast('Save cancelled', 'error');
+            } else {
+                console.error('ZIP creation error:', error);
+                this.setStatus('Save failed', 'error');
+                this.showToast(`Failed to create ZIP: ${error.message}`, 'error');
+            }
         }
     }
 
@@ -664,14 +835,25 @@ class ThemeForgeApp {
         this.showToast('Check console for detailed installation instructions', 'success');
     }
 
-    exportJson() {
+    async exportJson() {
         if (!this.currentTheme) return;
         
-        const themeName = this.currentTheme.name || 'generated-theme';
-        const themeSlug = themeName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-        
-        this.downloadJson(this.currentTheme, `${themeSlug}.json`);
-        this.showToast('Theme JSON downloaded!', 'success');
+        try {
+            const result = await this.installer.downloadAsJson(this.currentTheme);
+            if (result.success) {
+                this.showToast('Theme JSON saved!', 'success');
+            }
+        } catch (error) {
+            if (error.message === 'Save cancelled') {
+                this.showToast('Save cancelled', 'error');
+            } else {
+                // Fallback to old method for web
+                const themeName = this.currentTheme.name || 'generated-theme';
+                const themeSlug = themeName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                this.downloadJson(this.currentTheme, `${themeSlug}.json`);
+                this.showToast('Theme JSON downloaded!', 'success');
+            }
+        }
     }
 
     copyColors() {
@@ -685,6 +867,735 @@ class ThemeForgeApp {
         
         navigator.clipboard.writeText(colorsText);
         this.showToast('Colors copied to clipboard!', 'success');
+    }
+
+    /**
+     * Apply the current theme to ThemeForge's UI
+     */
+    applyThemeToApp() {
+        if (!this.currentTheme) return;
+        
+        const palette = this.currentTheme.palette || ThemeSchema.extractPalette(this.currentTheme);
+        const colors = this.currentTheme.colors || {};
+        
+        // Build theme data
+        const themeData = {
+            name: this.currentTheme.name,
+            palette: palette,
+            colors: colors,
+            type: this.currentTheme.type
+        };
+        
+        // Apply the colors
+        this.applyThemeColors(themeData);
+        
+        // Save to localStorage
+        localStorage.setItem('themeforge-app-theme', JSON.stringify(themeData));
+        
+        this.showToast(`Applied "${this.currentTheme.name}" to ThemeForge!`, 'success');
+    }
+
+    /**
+     * Reset ThemeForge to its default theme
+     */
+    resetAppTheme() {
+        const root = document.documentElement;
+        
+        // Reset to default values
+        root.style.setProperty('--bg-deep', '#0a0a0f');
+        root.style.setProperty('--bg-primary', '#0d0d14');
+        root.style.setProperty('--bg-secondary', '#12121c');
+        root.style.setProperty('--bg-tertiary', '#181824');
+        root.style.setProperty('--bg-elevated', '#1e1e2e');
+        
+        root.style.setProperty('--text-primary', '#e4e4ef');
+        root.style.setProperty('--text-secondary', '#9898a8');
+        root.style.setProperty('--text-muted', '#5a5a6e');
+        root.style.setProperty('--text-dim', '#3a3a4a');
+        
+        root.style.setProperty('--accent-primary', '#00f0ff');
+        root.style.setProperty('--accent-primary-dim', 'rgba(0, 240, 255, 0.15)');
+        root.style.setProperty('--accent-primary-glow', 'rgba(0, 240, 255, 0.4)');
+        root.style.setProperty('--accent-secondary', '#ff006e');
+        root.style.setProperty('--accent-secondary-dim', 'rgba(255, 0, 110, 0.15)');
+        root.style.setProperty('--accent-tertiary', '#8b5cf6');
+        root.style.setProperty('--accent-success', '#00ff88');
+        root.style.setProperty('--accent-warning', '#ffaa00');
+        root.style.setProperty('--accent-error', '#ff4466');
+        
+        root.style.setProperty('--border-subtle', 'rgba(255, 255, 255, 0.04)');
+        root.style.setProperty('--border-default', 'rgba(255, 255, 255, 0.08)');
+        root.style.setProperty('--border-strong', 'rgba(255, 255, 255, 0.12)');
+        root.style.setProperty('--border-accent', 'rgba(0, 240, 255, 0.3)');
+        
+        root.style.setProperty('--shadow-glow', '0 0 30px rgba(0, 240, 255, 0.4)');
+        
+        // Remove from localStorage
+        localStorage.removeItem('themeforge-app-theme');
+        
+        this.showToast('Reset to default theme', 'success');
+    }
+
+    /**
+     * Load previously applied theme from localStorage
+     */
+    loadAppliedTheme() {
+        try {
+            const saved = localStorage.getItem('themeforge-app-theme');
+            if (saved) {
+                const themeData = JSON.parse(saved);
+                // Apply the saved theme directly without showing toast
+                this.applyThemeColors(themeData);
+                console.log('Loaded saved app theme:', themeData.name);
+            }
+        } catch (error) {
+            console.warn('Failed to load saved app theme:', error);
+        }
+    }
+
+    /**
+     * Apply theme colors to CSS variables (internal helper)
+     */
+    applyThemeColors(themeData) {
+        const palette = themeData.palette || {};
+        const colors = themeData.colors || {};
+        const isDark = themeData.type !== 'light';
+        
+        const root = document.documentElement;
+        
+        // Core backgrounds
+        const bg = palette.background || colors['editor.background'] || (isDark ? '#1e1e2e' : '#ffffff');
+        const bgAlt = palette.backgroundAlt || colors['sideBar.background'] || this.adjustColor(bg, isDark ? 10 : -10);
+        
+        root.style.setProperty('--bg-deep', this.adjustColor(bg, isDark ? -10 : 10));
+        root.style.setProperty('--bg-primary', bg);
+        root.style.setProperty('--bg-secondary', bgAlt);
+        root.style.setProperty('--bg-tertiary', this.adjustColor(bgAlt, isDark ? 15 : -15));
+        root.style.setProperty('--bg-elevated', this.adjustColor(bgAlt, isDark ? 25 : -25));
+        
+        // Text colors
+        const fg = palette.foreground || colors['editor.foreground'] || (isDark ? '#e4e4ef' : '#333333');
+        const fgMuted = palette.foregroundMuted || this.adjustColor(fg, isDark ? -80 : 80);
+        
+        root.style.setProperty('--text-primary', fg);
+        root.style.setProperty('--text-secondary', this.adjustColor(fg, isDark ? -40 : 40));
+        root.style.setProperty('--text-muted', fgMuted);
+        root.style.setProperty('--text-dim', this.adjustColor(fgMuted, isDark ? -30 : 30));
+        
+        // Accent colors
+        const accent = palette.accent || colors['focusBorder'] || '#00f0ff';
+        const accentSecondary = palette.accentSecondary || palette.keyword || '#ff006e';
+        const accentTertiary = palette.class || palette.function || '#8b5cf6';
+        
+        root.style.setProperty('--accent-primary', accent);
+        root.style.setProperty('--accent-primary-dim', this.hexToRgba(accent, 0.15));
+        root.style.setProperty('--accent-primary-glow', this.hexToRgba(accent, 0.4));
+        root.style.setProperty('--accent-secondary', accentSecondary);
+        root.style.setProperty('--accent-secondary-dim', this.hexToRgba(accentSecondary, 0.15));
+        root.style.setProperty('--accent-tertiary', accentTertiary);
+        
+        // Status colors
+        root.style.setProperty('--accent-success', palette.success || '#00ff88');
+        root.style.setProperty('--accent-warning', palette.warning || '#ffaa00');
+        root.style.setProperty('--accent-error', palette.error || '#ff4466');
+        
+        // Borders
+        root.style.setProperty('--border-subtle', this.hexToRgba(fg, 0.04));
+        root.style.setProperty('--border-default', this.hexToRgba(fg, 0.08));
+        root.style.setProperty('--border-strong', this.hexToRgba(fg, 0.12));
+        root.style.setProperty('--border-accent', this.hexToRgba(accent, 0.3));
+        
+        // Update glow shadow
+        root.style.setProperty('--shadow-glow', `0 0 30px ${this.hexToRgba(accent, 0.4)}`);
+    }
+
+    /**
+     * Adjust a hex color brightness
+     */
+    adjustColor(hex, amount) {
+        if (!hex || !hex.startsWith('#')) return hex;
+        try {
+            const num = parseInt(hex.slice(1), 16);
+            const r = Math.min(255, Math.max(0, (num >> 16) + amount));
+            const g = Math.min(255, Math.max(0, ((num >> 8) & 0x00FF) + amount));
+            const b = Math.min(255, Math.max(0, (num & 0x0000FF) + amount));
+            return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+        } catch (e) {
+            return hex;
+        }
+    }
+
+    /**
+     * Convert hex to rgba
+     */
+    hexToRgba(hex, alpha) {
+        if (!hex || !hex.startsWith('#')) return `rgba(0, 0, 0, ${alpha})`;
+        try {
+            const num = parseInt(hex.slice(1), 16);
+            const r = (num >> 16) & 0xFF;
+            const g = (num >> 8) & 0xFF;
+            const b = num & 0xFF;
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        } catch (e) {
+            return `rgba(0, 0, 0, ${alpha})`;
+        }
+    }
+
+    // ============================================
+    // Theme Library Methods
+    // ============================================
+
+    /**
+     * Open theme library modal
+     */
+    async openLibrary() {
+        await this.loadLibraryThemes();
+        this.libraryModal.classList.add('active');
+    }
+
+    /**
+     * Close theme library modal
+     */
+    closeLibrary() {
+        this.libraryModal.classList.remove('active');
+    }
+
+    /**
+     * Load and render themes in library
+     */
+    async loadLibraryThemes() {
+        let themes = [];
+        
+        // Try Electron API first, fall back to localStorage
+        if (window.electronAPI?.themeLibrary) {
+            themes = await window.electronAPI.themeLibrary.getAll();
+        } else {
+            const saved = localStorage.getItem('themeforge-library');
+            if (saved) {
+                themes = JSON.parse(saved).themes || [];
+            }
+        }
+        
+        if (themes.length === 0) {
+            this.libraryGrid.innerHTML = `
+                <div class="library-empty">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    <p>No saved themes yet</p>
+                    <span>Generate a theme and save it to your library</span>
+                </div>
+            `;
+            return;
+        }
+        
+        this.libraryGrid.innerHTML = themes.map(theme => this.renderThemeCard(theme)).join('');
+        
+        // Add event listeners to cards
+        this.libraryGrid.querySelectorAll('.theme-card').forEach(card => {
+            const themeId = card.dataset.id;
+            
+            card.querySelector('.load-theme')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.loadThemeFromLibrary(themeId);
+            });
+            
+            card.querySelector('.edit-theme')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.editThemeFromLibrary(themeId);
+            });
+            
+            card.querySelector('.delete-theme')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.deleteThemeFromLibrary(themeId);
+            });
+            
+            // Double-click to load
+            card.addEventListener('dblclick', () => {
+                this.loadThemeFromLibrary(themeId);
+            });
+        });
+    }
+
+    /**
+     * Render a theme card for library
+     */
+    renderThemeCard(theme) {
+        const palette = theme.palette || {};
+        const colors = [
+            palette.background || '#1e1e2e',
+            palette.accent || '#00f0ff',
+            palette.keyword || '#ff006e',
+            palette.string || '#00ff88',
+            palette.function || '#8b5cf6'
+        ];
+        
+        const date = theme.createdAt ? new Date(theme.createdAt).toLocaleDateString() : 'Unknown';
+        
+        return `
+            <div class="theme-card" data-id="${theme.id}">
+                <div class="theme-card-preview">
+                    ${colors.map(c => `<div class="theme-card-color" style="background: ${c}"></div>`).join('')}
+                </div>
+                <div class="theme-card-info">
+                    <div class="theme-card-name">${theme.name || 'Untitled Theme'}</div>
+                    <div class="theme-card-meta">
+                        <span class="theme-card-type">${theme.type || 'dark'}</span>
+                        <span>${date}</span>
+                    </div>
+                </div>
+                <div class="theme-card-actions">
+                    <button class="btn btn-sm load-theme" title="Load theme">Load</button>
+                    <button class="btn btn-sm edit-theme" title="Edit colors">Edit</button>
+                    <button class="btn btn-sm btn-ghost delete-theme" title="Delete">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Save current theme to library
+     */
+    async saveCurrentThemeToLibrary() {
+        if (!this.currentTheme) {
+            this.showToast('No theme to save', 'error');
+            return;
+        }
+        
+        const themeToSave = {
+            ...this.currentTheme,
+            palette: this.currentTheme.palette || ThemeSchema.extractPalette(this.currentTheme)
+        };
+        
+        await this.saveThemeToLibrary(themeToSave);
+    }
+
+    /**
+     * Save a theme to library
+     */
+    async saveThemeToLibrary(theme) {
+        try {
+            if (window.electronAPI?.themeLibrary) {
+                const result = await window.electronAPI.themeLibrary.save(theme);
+                if (result.success) {
+                    this.showToast(`"${theme.name}" saved to library!`, 'success');
+                } else {
+                    throw new Error(result.error);
+                }
+            } else {
+                // Fallback to localStorage
+                const saved = localStorage.getItem('themeforge-library');
+                const library = saved ? JSON.parse(saved) : { themes: [] };
+                
+                if (!theme.id) {
+                    theme.id = `theme_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                }
+                theme.createdAt = theme.createdAt || new Date().toISOString();
+                theme.updatedAt = new Date().toISOString();
+                
+                const existingIndex = library.themes.findIndex(t => t.id === theme.id);
+                if (existingIndex >= 0) {
+                    library.themes[existingIndex] = theme;
+                } else {
+                    library.themes.unshift(theme);
+                }
+                
+                localStorage.setItem('themeforge-library', JSON.stringify(library));
+                this.showToast(`"${theme.name}" saved to library!`, 'success');
+            }
+        } catch (error) {
+            console.error('Failed to save theme:', error);
+            this.showToast(`Failed to save: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * Load theme from library
+     */
+    async loadThemeFromLibrary(themeId) {
+        try {
+            let theme;
+            
+            if (window.electronAPI?.themeLibrary) {
+                theme = await window.electronAPI.themeLibrary.get(themeId);
+            } else {
+                const saved = localStorage.getItem('themeforge-library');
+                const library = saved ? JSON.parse(saved) : { themes: [] };
+                theme = library.themes.find(t => t.id === themeId);
+            }
+            
+            if (!theme) {
+                this.showToast('Theme not found', 'error');
+                return;
+            }
+            
+            // Expand palette if needed
+            if (theme.palette && !theme.colors) {
+                const expanded = ThemeSchema.expandPaletteToTheme(theme.palette, theme.name, theme.type);
+                theme = { ...theme, ...expanded };
+            }
+            
+            this.currentTheme = theme;
+            this.renderer.render(theme);
+            this.updatePaletteDisplay(theme);
+            this.updateThemeInfo(theme);
+            this.enableExportButtons();
+            this.canvasOverlay.classList.add('hidden');
+            
+            this.closeLibrary();
+            this.showToast(`Loaded "${theme.name}"`, 'success');
+            
+        } catch (error) {
+            console.error('Failed to load theme:', error);
+            this.showToast(`Failed to load: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * Edit theme from library
+     */
+    async editThemeFromLibrary(themeId) {
+        try {
+            let theme;
+            
+            if (window.electronAPI?.themeLibrary) {
+                theme = await window.electronAPI.themeLibrary.get(themeId);
+            } else {
+                const saved = localStorage.getItem('themeforge-library');
+                const library = saved ? JSON.parse(saved) : { themes: [] };
+                theme = library.themes.find(t => t.id === themeId);
+            }
+            
+            if (theme) {
+                this.closeLibrary();
+                this.openColorEditorWithTheme(theme);
+            }
+        } catch (error) {
+            console.error('Failed to edit theme:', error);
+            this.showToast(`Failed to edit: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * Delete theme from library
+     */
+    async deleteThemeFromLibrary(themeId) {
+        if (!confirm('Are you sure you want to delete this theme?')) {
+            return;
+        }
+        
+        try {
+            if (window.electronAPI?.themeLibrary) {
+                await window.electronAPI.themeLibrary.delete(themeId);
+            } else {
+                const saved = localStorage.getItem('themeforge-library');
+                const library = saved ? JSON.parse(saved) : { themes: [] };
+                library.themes = library.themes.filter(t => t.id !== themeId);
+                localStorage.setItem('themeforge-library', JSON.stringify(library));
+            }
+            
+            await this.loadLibraryThemes();
+            this.showToast('Theme deleted', 'success');
+            
+        } catch (error) {
+            console.error('Failed to delete theme:', error);
+            this.showToast(`Failed to delete: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * Import theme library
+     */
+    async importLibrary() {
+        try {
+            if (window.electronAPI?.themeLibrary) {
+                const result = await window.electronAPI.themeLibrary.import();
+                if (result.canceled) return;
+                if (result.success) {
+                    this.showToast(`Imported ${result.imported} themes`, 'success');
+                    await this.loadLibraryThemes();
+                } else {
+                    throw new Error(result.error);
+                }
+            } else {
+                this.showToast('Import not available in web mode', 'error');
+            }
+        } catch (error) {
+            console.error('Failed to import:', error);
+            this.showToast(`Failed to import: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * Export theme library
+     */
+    async exportLibrary() {
+        try {
+            if (window.electronAPI?.themeLibrary) {
+                const result = await window.electronAPI.themeLibrary.export();
+                if (result.canceled) return;
+                if (result.success) {
+                    this.showToast('Library exported successfully', 'success');
+                } else {
+                    throw new Error(result.error);
+                }
+            } else {
+                // Fallback: download as JSON
+                const saved = localStorage.getItem('themeforge-library');
+                if (saved) {
+                    this.downloadJson(JSON.parse(saved), 'themeforge-library.json');
+                    this.showToast('Library exported', 'success');
+                }
+            }
+        } catch (error) {
+            console.error('Failed to export:', error);
+            this.showToast(`Failed to export: ${error.message}`, 'error');
+        }
+    }
+
+    // ============================================
+    // Color Editor Methods
+    // ============================================
+
+    /**
+     * Open color editor with current theme
+     */
+    openColorEditor() {
+        if (!this.currentTheme) {
+            this.showToast('No theme to edit', 'error');
+            return;
+        }
+        this.openColorEditorWithTheme({ ...this.currentTheme });
+    }
+
+    /**
+     * Create a new theme from scratch
+     */
+    createFromScratch() {
+        const defaultPalette = {
+            background: '#1a1b26',
+            backgroundAlt: '#16161e',
+            foreground: '#c0caf5',
+            foregroundMuted: '#565f89',
+            accent: '#7aa2f7',
+            accentSecondary: '#bb9af7',
+            selection: '#33467c',
+            comment: '#565f89',
+            string: '#9ece6a',
+            number: '#ff9e64',
+            keyword: '#bb9af7',
+            function: '#7aa2f7',
+            class: '#2ac3de',
+            variable: '#c0caf5',
+            property: '#73daca',
+            operator: '#89ddff',
+            error: '#f7768e',
+            warning: '#e0af68',
+            success: '#9ece6a',
+            info: '#7aa2f7'
+        };
+        
+        const newTheme = {
+            name: 'My Custom Theme',
+            type: 'dark',
+            palette: defaultPalette
+        };
+        
+        this.openColorEditorWithTheme(newTheme);
+    }
+
+    /**
+     * Open color editor with a specific theme
+     */
+    openColorEditorWithTheme(theme) {
+        this.editingTheme = theme;
+        this.editingPalette = { ...(theme.palette || ThemeSchema.extractPalette(theme)) };
+        
+        // Set theme name
+        this.editThemeName.value = theme.name || 'Untitled Theme';
+        
+        // Set theme type toggle
+        this.editThemeTypeBtns.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.editTheme === (theme.type || 'dark'));
+        });
+        
+        // Update title
+        this.editorTitle.textContent = theme.id ? 'Edit Theme Colors' : 'Create New Theme';
+        
+        // Render color inputs
+        this.renderColorInputs();
+        
+        // Initialize editor canvas renderer
+        if (!this.editorRenderer) {
+            this.editorRenderer = new ThemeCanvasRenderer('editorCanvas');
+        }
+        this.updateEditorPreview();
+        
+        // Show modal
+        this.colorEditorModal.classList.add('active');
+    }
+
+    /**
+     * Render color input fields
+     */
+    renderColorInputs() {
+        const categories = {
+            'Base Colors': ['background', 'backgroundAlt', 'foreground', 'foregroundMuted'],
+            'Accent Colors': ['accent', 'accentSecondary', 'selection'],
+            'Syntax Colors': ['comment', 'string', 'number', 'keyword', 'function', 'class', 'variable', 'property', 'operator'],
+            'Status Colors': ['error', 'warning', 'success', 'info']
+        };
+        
+        const labels = {
+            background: 'Background',
+            backgroundAlt: 'Secondary BG',
+            foreground: 'Foreground',
+            foregroundMuted: 'Muted Text',
+            accent: 'Primary Accent',
+            accentSecondary: 'Secondary Accent',
+            selection: 'Selection',
+            comment: 'Comments',
+            string: 'Strings',
+            number: 'Numbers',
+            keyword: 'Keywords',
+            function: 'Functions',
+            class: 'Classes',
+            variable: 'Variables',
+            property: 'Properties',
+            operator: 'Operators',
+            error: 'Error',
+            warning: 'Warning',
+            success: 'Success',
+            info: 'Info'
+        };
+        
+        let html = '';
+        
+        for (const [category, keys] of Object.entries(categories)) {
+            html += `<div class="color-category">${category}</div>`;
+            
+            for (const key of keys) {
+                const value = this.editingPalette[key] || '#888888';
+                html += `
+                    <div class="color-edit-row">
+                        <label>${labels[key] || key}</label>
+                        <div class="color-edit-input">
+                            <input type="color" data-key="${key}" value="${value}">
+                            <input type="text" data-key="${key}" value="${value}" maxlength="7">
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        this.editorColors.innerHTML = html;
+        
+        // Add event listeners
+        this.editorColors.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', (e) => {
+                const key = e.target.dataset.key;
+                let value = e.target.value;
+                
+                // Ensure valid hex format
+                if (e.target.type === 'text' && !value.startsWith('#')) {
+                    value = '#' + value;
+                }
+                
+                this.editingPalette[key] = value;
+                
+                // Sync color and text inputs
+                const row = e.target.closest('.color-edit-row');
+                row.querySelectorAll('input').forEach(inp => {
+                    if (inp !== e.target) {
+                        inp.value = value;
+                    }
+                });
+                
+                this.updateEditorPreview();
+            });
+        });
+    }
+
+    /**
+     * Update the editor preview canvas
+     */
+    updateEditorPreview() {
+        if (!this.editorRenderer || !this.editingTheme) return;
+        
+        // Build theme from palette
+        const fullTheme = ThemeSchema.expandPaletteToTheme(
+            this.editingPalette,
+            this.editThemeName.value || 'Preview',
+            this.editingTheme.type || 'dark'
+        );
+        fullTheme.palette = this.editingPalette;
+        
+        this.editorRenderer.render(fullTheme);
+    }
+
+    /**
+     * Close color editor
+     */
+    closeColorEditor() {
+        this.colorEditorModal.classList.remove('active');
+        this.editingTheme = null;
+        this.editingPalette = null;
+    }
+
+    /**
+     * Save edited theme to library
+     */
+    async saveEditedThemeToLibrary() {
+        if (!this.editingTheme || !this.editingPalette) return;
+        
+        const theme = {
+            ...this.editingTheme,
+            name: this.editThemeName.value || 'Untitled Theme',
+            type: this.editingTheme.type || 'dark',
+            palette: { ...this.editingPalette }
+        };
+        
+        // Expand to full theme
+        const fullTheme = ThemeSchema.expandPaletteToTheme(theme.palette, theme.name, theme.type);
+        theme.colors = fullTheme.colors;
+        theme.tokenColors = fullTheme.tokenColors;
+        
+        await this.saveThemeToLibrary(theme);
+        this.closeColorEditor();
+    }
+
+    /**
+     * Apply edited theme as current theme
+     */
+    applyEditedTheme() {
+        if (!this.editingTheme || !this.editingPalette) return;
+        
+        const theme = {
+            ...this.editingTheme,
+            name: this.editThemeName.value || 'Untitled Theme',
+            type: this.editingTheme.type || 'dark',
+            palette: { ...this.editingPalette }
+        };
+        
+        // Expand to full theme
+        const fullTheme = ThemeSchema.expandPaletteToTheme(theme.palette, theme.name, theme.type);
+        theme.colors = fullTheme.colors;
+        theme.tokenColors = fullTheme.tokenColors;
+        
+        this.currentTheme = theme;
+        this.renderer.render(theme);
+        this.updatePaletteDisplay(theme);
+        this.updateThemeInfo(theme);
+        this.enableExportButtons();
+        this.canvasOverlay.classList.add('hidden');
+        
+        this.closeColorEditor();
+        this.showToast(`Applied "${theme.name}"`, 'success');
     }
 
     downloadJson(data, filename) {
@@ -857,8 +1768,26 @@ class ThemeForgeApp {
 }
 
 // Initialize the app when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     console.log('ThemeForge initializing...');
+    
+    // Detect Electron mode
+    const isElectron = !!(window.electronAPI && window.electronAPI.isElectron);
+    console.log(`Running in ${isElectron ? 'Electron' : 'Web'} mode`);
+    
+    // Log app info in Electron mode
+    if (isElectron) {
+        try {
+            const appInfo = await window.electronAPI.getAppInfo();
+            console.log('App Info:', appInfo);
+            
+            // Check installations
+            const installations = await window.electronAPI.checkInstallations();
+            console.log('Installations:', installations);
+        } catch (e) {
+            console.warn('Could not get Electron app info:', e);
+        }
+    }
     
     try {
         window.app = new ThemeForgeApp();
