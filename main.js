@@ -11,9 +11,94 @@ const os = require('os');
 // Set the app name (shown in menu bar on macOS)
 app.name = 'ThemeForge';
 
-// Theme library file path
+// User data paths
 const userDataPath = app.getPath('userData');
 const themeLibraryPath = path.join(userDataPath, 'theme-library.json');
+const settingsPath = path.join(userDataPath, 'settings.json');
+const appThemePath = path.join(userDataPath, 'app-theme.json');
+
+// Default settings
+const defaultSettings = {
+    ollamaUrl: 'http://localhost:11434',
+    model: '',
+    temperature: 0.7,
+    baseTheme: 'dark',
+    contrast: 'normal',
+    windowBounds: null
+};
+
+/**
+ * Initialize settings file
+ */
+function initSettings() {
+    if (!fs.existsSync(settingsPath)) {
+        fs.writeFileSync(settingsPath, JSON.stringify(defaultSettings, null, 2));
+    }
+}
+
+/**
+ * Read settings
+ */
+function readSettings() {
+    try {
+        initSettings();
+        const data = fs.readFileSync(settingsPath, 'utf8');
+        return { ...defaultSettings, ...JSON.parse(data) };
+    } catch (error) {
+        console.error('Error reading settings:', error);
+        return { ...defaultSettings };
+    }
+}
+
+/**
+ * Write settings
+ */
+function writeSettings(settings) {
+    try {
+        const current = readSettings();
+        const merged = { ...current, ...settings };
+        fs.writeFileSync(settingsPath, JSON.stringify(merged, null, 2));
+        return true;
+    } catch (error) {
+        console.error('Error writing settings:', error);
+        return false;
+    }
+}
+
+/**
+ * Read app theme
+ */
+function readAppTheme() {
+    try {
+        if (fs.existsSync(appThemePath)) {
+            const data = fs.readFileSync(appThemePath, 'utf8');
+            return JSON.parse(data);
+        }
+        return null;
+    } catch (error) {
+        console.error('Error reading app theme:', error);
+        return null;
+    }
+}
+
+/**
+ * Write app theme
+ */
+function writeAppTheme(theme) {
+    try {
+        if (theme === null) {
+            if (fs.existsSync(appThemePath)) {
+                fs.unlinkSync(appThemePath);
+            }
+        } else {
+            fs.writeFileSync(appThemePath, JSON.stringify(theme, null, 2));
+        }
+        return true;
+    } catch (error) {
+        console.error('Error writing app theme:', error);
+        return false;
+    }
+}
 
 /**
  * Initialize theme library file
@@ -60,15 +145,22 @@ function getExtensionPaths() {
     
     return {
         cursor: path.join(homeDir, '.cursor', 'extensions'),
-        vscode: path.join(homeDir, '.vscode', 'extensions')
+        vscode: path.join(homeDir, '.vscode', 'extensions'),
+        userData: userDataPath
     };
 }
 
 // Create the browser window
 function createWindow() {
+    // Get saved window bounds
+    const settings = readSettings();
+    const bounds = settings.windowBounds || { width: 1400, height: 900 };
+    
     mainWindow = new BrowserWindow({
-        width: 1400,
-        height: 900,
+        width: bounds.width,
+        height: bounds.height,
+        x: bounds.x,
+        y: bounds.y,
         minWidth: 1000,
         minHeight: 700,
         backgroundColor: '#0a0a0f',
@@ -96,6 +188,17 @@ function createWindow() {
     if (process.argv.includes('--dev')) {
         mainWindow.webContents.openDevTools();
     }
+
+    // Save window bounds on resize/move
+    const saveBounds = () => {
+        if (!mainWindow.isMaximized() && !mainWindow.isMinimized()) {
+            const bounds = mainWindow.getBounds();
+            writeSettings({ windowBounds: bounds });
+        }
+    };
+    
+    mainWindow.on('resize', saveBounds);
+    mainWindow.on('move', saveBounds);
 
     mainWindow.on('closed', () => {
         mainWindow = null;
@@ -558,5 +661,63 @@ ipcMain.handle('theme-library-import', async () => {
     } catch (error) {
         return { success: false, error: error.message };
     }
+});
+
+// ============================================
+// Settings IPC Handlers
+// ============================================
+
+/**
+ * Get all settings
+ */
+ipcMain.handle('settings-get', () => {
+    return readSettings();
+});
+
+/**
+ * Save settings (merges with existing)
+ */
+ipcMain.handle('settings-save', (event, settings) => {
+    return writeSettings(settings);
+});
+
+/**
+ * Reset settings to defaults
+ */
+ipcMain.handle('settings-reset', () => {
+    try {
+        fs.writeFileSync(settingsPath, JSON.stringify(defaultSettings, null, 2));
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+/**
+ * Get app theme
+ */
+ipcMain.handle('app-theme-get', () => {
+    return readAppTheme();
+});
+
+/**
+ * Save app theme
+ */
+ipcMain.handle('app-theme-save', (event, theme) => {
+    return writeAppTheme(theme);
+});
+
+/**
+ * Clear app theme (reset to default)
+ */
+ipcMain.handle('app-theme-clear', () => {
+    return writeAppTheme(null);
+});
+
+/**
+ * Get user data path
+ */
+ipcMain.handle('get-user-data-path', () => {
+    return userDataPath;
 });
 

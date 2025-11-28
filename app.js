@@ -31,7 +31,13 @@ class ThemeForgeApp {
         // Initialize UI
         this.initializeElements();
         this.attachEventListeners();
-        this.loadSavedSettings();
+        
+        // Async initialization
+        this.init();
+    }
+    
+    async init() {
+        await this.loadSavedSettings();
         this.refreshModels();
     }
 
@@ -111,6 +117,16 @@ class ThemeForgeApp {
         this.saveToLibraryBtn = document.getElementById('saveToLibrary');
         this.applyEditedThemeBtn = document.getElementById('applyEditedTheme');
         this.editThemeTypeBtns = document.querySelectorAll('[data-edit-theme]');
+        
+        // Settings modal
+        this.settingsBtn = document.getElementById('settingsBtn');
+        this.settingsModal = document.getElementById('settingsModal');
+        this.closeSettingsBtn = document.getElementById('closeSettings');
+        this.clearAllDataBtn = document.getElementById('clearAllData');
+        this.appVersion = document.getElementById('appVersion');
+        this.appPlatform = document.getElementById('appPlatform');
+        this.appElectron = document.getElementById('appElectron');
+        this.dataPath = document.getElementById('dataPath');
         
         // Toast container
         this.toastContainer = document.getElementById('toastContainer');
@@ -255,6 +271,11 @@ class ThemeForgeApp {
         this.saveToLibraryBtn.addEventListener('click', () => this.saveEditedThemeToLibrary());
         this.applyEditedThemeBtn.addEventListener('click', () => this.applyEditedTheme());
         
+        // Settings modal
+        this.settingsBtn.addEventListener('click', () => this.openSettings());
+        this.closeSettingsBtn.addEventListener('click', () => this.closeSettings());
+        this.clearAllDataBtn.addEventListener('click', () => this.clearAllData());
+        
         // Theme type toggle in editor
         this.editThemeTypeBtns.forEach(btn => {
             btn.addEventListener('click', () => {
@@ -274,12 +295,16 @@ class ThemeForgeApp {
         this.colorEditorModal.addEventListener('click', (e) => {
             if (e.target === this.colorEditorModal) this.closeColorEditor();
         });
+        this.settingsModal.addEventListener('click', (e) => {
+            if (e.target === this.settingsModal) this.closeSettings();
+        });
         
         // Close modals on Escape key
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 if (this.libraryModal.classList.contains('active')) this.closeLibrary();
                 if (this.colorEditorModal.classList.contains('active')) this.closeColorEditor();
+                if (this.settingsModal.classList.contains('active')) this.closeSettings();
             }
         });
 
@@ -872,7 +897,7 @@ class ThemeForgeApp {
     /**
      * Apply the current theme to ThemeForge's UI
      */
-    applyThemeToApp() {
+    async applyThemeToApp() {
         if (!this.currentTheme) return;
         
         const palette = this.currentTheme.palette || ThemeSchema.extractPalette(this.currentTheme);
@@ -889,8 +914,12 @@ class ThemeForgeApp {
         // Apply the colors
         this.applyThemeColors(themeData);
         
-        // Save to localStorage
-        localStorage.setItem('themeforge-app-theme', JSON.stringify(themeData));
+        // Save to storage
+        if (window.electronAPI?.appTheme) {
+            await window.electronAPI.appTheme.save(themeData);
+        } else {
+            localStorage.setItem('themeforge-app-theme', JSON.stringify(themeData));
+        }
         
         this.showToast(`Applied "${this.currentTheme.name}" to ThemeForge!`, 'success');
     }
@@ -898,7 +927,7 @@ class ThemeForgeApp {
     /**
      * Reset ThemeForge to its default theme
      */
-    resetAppTheme() {
+    async resetAppTheme() {
         const root = document.documentElement;
         
         // Reset to default values
@@ -930,20 +959,31 @@ class ThemeForgeApp {
         
         root.style.setProperty('--shadow-glow', '0 0 30px rgba(0, 240, 255, 0.4)');
         
-        // Remove from localStorage
-        localStorage.removeItem('themeforge-app-theme');
+        // Clear from storage
+        if (window.electronAPI?.appTheme) {
+            await window.electronAPI.appTheme.clear();
+        } else {
+            localStorage.removeItem('themeforge-app-theme');
+        }
         
         this.showToast('Reset to default theme', 'success');
     }
 
     /**
-     * Load previously applied theme from localStorage
+     * Load previously applied theme from storage
      */
-    loadAppliedTheme() {
+    async loadAppliedTheme() {
         try {
-            const saved = localStorage.getItem('themeforge-app-theme');
-            if (saved) {
-                const themeData = JSON.parse(saved);
+            let themeData;
+            
+            if (window.electronAPI?.appTheme) {
+                themeData = await window.electronAPI.appTheme.get();
+            } else {
+                const saved = localStorage.getItem('themeforge-app-theme');
+                themeData = saved ? JSON.parse(saved) : null;
+            }
+            
+            if (themeData) {
                 // Apply the saved theme directly without showing toast
                 this.applyThemeColors(themeData);
                 console.log('Loaded saved app theme:', themeData.name);
@@ -1548,6 +1588,104 @@ class ThemeForgeApp {
     }
 
     /**
+     * Open settings modal
+     */
+    async openSettings() {
+        // Populate app info
+        this.appVersion.textContent = '1.0.0';
+        
+        if (this.isElectron) {
+            // Get info from Electron
+            try {
+                const platform = navigator.platform;
+                const electronVersion = navigator.userAgent.match(/Electron\/(\d+\.\d+\.\d+)/)?.[1] || 'Unknown';
+                
+                this.appPlatform.textContent = platform;
+                this.appElectron.textContent = electronVersion;
+                
+                // Get data path from main process
+                const paths = await window.electronAPI.getExtensionPaths();
+                this.dataPath.textContent = paths.userData || 'Application Data';
+            } catch (err) {
+                this.appPlatform.textContent = navigator.platform;
+                this.appElectron.textContent = 'Yes';
+                this.dataPath.textContent = 'Application Data';
+            }
+        } else {
+            this.appPlatform.textContent = 'Web Browser';
+            this.appElectron.textContent = 'No (Web Mode)';
+            this.dataPath.textContent = 'Browser localStorage';
+        }
+        
+        this.settingsModal.classList.add('active');
+    }
+
+    /**
+     * Close settings modal
+     */
+    closeSettings() {
+        this.settingsModal.classList.remove('active');
+    }
+
+    /**
+     * Clear all application data
+     */
+    async clearAllData() {
+        const confirmed = confirm(
+            'Are you sure you want to clear all data?\n\n' +
+            'This will delete:\n' +
+            '• All saved themes in your library\n' +
+            '• All application settings\n' +
+            '• Applied theme customizations\n\n' +
+            'This action cannot be undone.'
+        );
+        
+        if (!confirmed) return;
+        
+        try {
+            if (this.isElectron) {
+                // Clear library
+                await window.electronAPI.writeThemeLibrary([]);
+                // Clear settings
+                await window.electronAPI.writeSettings({});
+            } else {
+                // Clear localStorage
+                localStorage.removeItem('themeForgeLibrary');
+                localStorage.removeItem('ollamaUrl');
+                localStorage.removeItem('ollamaModel');
+                localStorage.removeItem('temperature');
+                localStorage.removeItem('baseTheme');
+                localStorage.removeItem('contrast');
+                localStorage.removeItem('appliedTheme');
+            }
+            
+            // Reset app theme
+            this.resetAppTheme();
+            
+            // Reset form values
+            this.ollamaUrlInput.value = 'http://localhost:11434';
+            this.ollamaModelInput.value = 'qwen3:32b';
+            this.temperatureSlider.value = 0.8;
+            this.temperatureValue.textContent = '0.8';
+            this.baseThemeButtons.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.theme === 'dark');
+            });
+            this.contrastButtons.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.contrast === 'normal');
+            });
+            
+            // Reset library
+            this.themeLibrary = [];
+            
+            this.closeSettings();
+            this.showToast('All data cleared successfully', 'success');
+        } catch (err) {
+            console.error('Failed to clear data:', err);
+            this.showToast('Failed to clear data', 'error');
+        }
+    }
+
+    /**
      * Save edited theme to library
      */
     async saveEditedThemeToLibrary() {
@@ -1661,7 +1799,7 @@ class ThemeForgeApp {
         return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
     }
 
-    saveSettings() {
+    async saveSettings() {
         const settings = {
             ollamaUrl: this.ollama.baseUrl, // Save the normalized URL
             model: this.selectedModel,
@@ -1669,13 +1807,23 @@ class ThemeForgeApp {
             baseTheme: this.options.baseTheme,
             contrast: this.options.contrast
         };
-        localStorage.setItem('themeforge-settings', JSON.stringify(settings));
+        
+        // Use Electron API if available, otherwise localStorage
+        if (window.electronAPI?.settings) {
+            await window.electronAPI.settings.save(settings);
+        } else {
+            localStorage.setItem('themeforge-settings', JSON.stringify(settings));
+        }
         console.log('Settings saved:', settings);
     }
 
-    resetToDefaults() {
-        // Clear localStorage
-        localStorage.removeItem('themeforge-settings');
+    async resetToDefaults() {
+        // Clear settings
+        if (window.electronAPI?.settings) {
+            await window.electronAPI.settings.reset();
+        } else {
+            localStorage.removeItem('themeforge-settings');
+        }
         
         // Reset to defaults (base URL without /v1, normalizeUrl will add it)
         const defaultUrl = 'http://localhost:11434';
@@ -1714,12 +1862,19 @@ class ThemeForgeApp {
         this.refreshModels();
     }
 
-    loadSavedSettings() {
+    async loadSavedSettings() {
         try {
-            const saved = localStorage.getItem('themeforge-settings');
-            if (saved) {
-                const settings = JSON.parse(saved);
-                
+            let settings;
+            
+            // Use Electron API if available, otherwise localStorage
+            if (window.electronAPI?.settings) {
+                settings = await window.electronAPI.settings.get();
+            } else {
+                const saved = localStorage.getItem('themeforge-settings');
+                settings = saved ? JSON.parse(saved) : null;
+            }
+            
+            if (settings) {
                 if (settings.ollamaUrl) {
                     // Set and normalize the URL
                     this.ollama.setBaseUrl(settings.ollamaUrl);
@@ -1760,6 +1915,8 @@ class ThemeForgeApp {
                         }
                     });
                 }
+                
+                console.log('Settings loaded:', settings);
             }
         } catch (error) {
             console.warn('Failed to load saved settings:', error);

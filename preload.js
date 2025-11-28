@@ -60,6 +60,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
         import: () => ipcRenderer.invoke('theme-library-import')
     },
     
+    // Settings operations
+    settings: {
+        get: () => ipcRenderer.invoke('settings-get'),
+        save: (settings) => ipcRenderer.invoke('settings-save', settings),
+        reset: () => ipcRenderer.invoke('settings-reset')
+    },
+    
+    // App theme operations (for applying theme to ThemeForge itself)
+    appTheme: {
+        get: () => ipcRenderer.invoke('app-theme-get'),
+        save: (theme) => ipcRenderer.invoke('app-theme-save', theme),
+        clear: () => ipcRenderer.invoke('app-theme-clear')
+    },
+    
+    // Get user data path
+    getUserDataPath: () => ipcRenderer.invoke('get-user-data-path'),
+    
     // Check if running in Electron
     isElectron: true
 });

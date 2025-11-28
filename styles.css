@@ -1410,6 +1410,108 @@ input[type="range"]::-webkit-slider-thumb:hover {
     border-top: 1px solid var(--border-subtle);
 }
 
+/* Settings Modal */
+.settings-section {
+    padding: var(--space-lg);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.settings-section:last-child {
+    border-bottom: none;
+}
+
+.settings-section-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--accent-primary);
+    margin-bottom: var(--space-md);
+}
+
+.settings-info-grid {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: var(--space-sm) var(--space-md);
+    font-size: 0.9rem;
+}
+
+.settings-label {
+    color: var(--text-muted);
+}
+
+.settings-value {
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+}
+
+.settings-path {
+    word-break: break-all;
+    font-size: 0.8rem;
+    background: var(--bg-tertiary);
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle);
+}
+
+.settings-hint {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: var(--space-md);
+    opacity: 0.8;
+}
+
+.shortcuts-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.shortcut-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.shortcut-item kbd {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    padding: 2px 8px;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.shortcut-item span {
+    margin-left: var(--space-sm);
+    color: var(--text-muted);
+}
+
+.settings-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.settings-actions .btn {
+    width: fit-content;
+}
+
+#clearAllData {
+    background: transparent;
+    border-color: var(--accent-danger);
+    color: var(--accent-danger);
+}
+
+#clearAllData:hover {
+    background: var(--accent-danger);
+    color: var(--bg-deep);
+}
+
 /* Theme Library Grid */
 .library-grid {
     display: grid;
