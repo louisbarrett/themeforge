@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src *; img-src 'self' data: blob:;">
     <title>ThemeForge — AI Color Theme Generator</title>
     <!-- Prevent favicon 404 -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path fill='%2300f0ff' d='M16 2L2 9l14 7 14-7-14-7zM2 23l14 7 14-7M2 16l14 7 14-7' stroke='%2300f0ff' stroke-width='2' fill='none'/></svg>">
@@ -13,6 +14,9 @@
 </head>
 <body>
     <div class="app-container">
+        <!-- Draggable Title Bar Region for Electron -->
+        <div class="electron-drag-region"></div>
+        
         <!-- Ambient Background -->
         <div class="ambient-bg">
             <div class="gradient-orb orb-1"></div>
@@ -31,6 +35,17 @@
                 <span class="logo-text">ThemeForge</span>
             </div>
             <div class="header-actions">
+                <button class="btn btn-ghost" id="createFromScratch" title="Create theme manually">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                </button>
+                <button class="btn btn-ghost" id="openLibrary" title="Theme library">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                    </svg>
+                </button>
                 <button class="btn btn-ghost" id="settingsBtn">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="3"/>
@@ -284,10 +299,7 @@
                                 <h4>🚀 Direct Install (Recommended)</h4>
                                 <ol>
                                     <li>Click <strong>"Install to Cursor"</strong> or <strong>"Install to VSCode"</strong></li>
-                                    <li>Select your extensions folder:
-                                        <code>~/.cursor/extensions</code> or
-                                        <code>~/.vscode/extensions</code>
-                                    </li>
+                                    <li>The theme will be installed automatically</li>
                                     <li>Restart your IDE</li>
                                     <li>Open Command Palette (<kbd>⌘</kbd>+<kbd>⇧</kbd>+<kbd>P</kbd>)</li>
                                     <li>Type "Color Theme" and select your theme</li>
@@ -342,7 +354,21 @@
                             </svg>
                             Install to VSCode
                         </button>
+                        <button class="btn btn-accent" id="applyToApp" disabled>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M12 2a7 7 0 0 0 0 14 3.5 3.5 0 0 1 0 7 10 10 0 1 0 0-20z"/>
+                            </svg>
+                            Apply to ThemeForge
+                        </button>
                     </div>
+                    <button class="btn btn-ghost btn-sm" id="resetAppTheme" style="margin-top: var(--space-sm); width: 100%;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                            <path d="M3 3v5h5"/>
+                        </svg>
+                        Reset to Default Theme
+                    </button>
                     
                     <h2 class="section-title" style="margin-top: var(--space-md);">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -375,6 +401,19 @@
                             </svg>
                             Copy Colors
                         </button>
+                        <button class="btn btn-secondary" id="editColors" disabled>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                            </svg>
+                            Edit Colors
+                        </button>
+                        <button class="btn btn-secondary" id="saveThemeToLibrary" disabled>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                            </svg>
+                            Save to Library
+                        </button>
                     </div>
                 </div>
             </aside>
@@ -384,8 +423,124 @@
     <!-- Toast Container -->
     <div class="toast-container" id="toastContainer"></div>
 
+    <!-- Theme Library Modal -->
+    <div class="modal-overlay" id="libraryModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    Theme Library
+                </h2>
+                <div class="modal-header-actions">
+                    <button class="btn btn-ghost btn-sm" id="importLibrary" title="Import themes">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        Import
+                    </button>
+                    <button class="btn btn-ghost btn-sm" id="exportLibrary" title="Export all themes">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Export
+                    </button>
+                    <button class="btn btn-icon btn-ghost" id="closeLibrary" title="Close">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="library-grid" id="libraryGrid">
+                    <div class="library-empty">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                        </svg>
+                        <p>No saved themes yet</p>
+                        <span>Generate a theme and save it to your library</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Color Editor Modal -->
+    <div class="modal-overlay" id="colorEditorModal">
+        <div class="modal modal-large">
+            <div class="modal-header">
+                <h2>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M12 2a7 7 0 0 0 0 14 3.5 3.5 0 0 1 0 7 10 10 0 1 0 0-20z"/>
+                    </svg>
+                    <span id="editorTitle">Edit Theme Colors</span>
+                </h2>
+                <button class="btn btn-icon btn-ghost" id="closeColorEditor" title="Close">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="editor-layout">
+                    <div class="editor-sidebar">
+                        <div class="editor-section">
+                            <label>Theme Name</label>
+                            <input type="text" id="editThemeName" placeholder="My Custom Theme">
+                        </div>
+                        <div class="editor-section">
+                            <label>Theme Type</label>
+                            <div class="toggle-group">
+                                <button class="toggle-btn active" data-edit-theme="dark">Dark</button>
+                                <button class="toggle-btn" data-edit-theme="light">Light</button>
+                            </div>
+                        </div>
+                        <div class="editor-colors" id="editorColors">
+                            <!-- Color inputs will be generated here -->
+                        </div>
+                    </div>
+                    <div class="editor-preview">
+                        <canvas id="editorCanvas"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" id="cancelColorEditor">Cancel</button>
+                <button class="btn btn-secondary" id="saveToLibrary">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    Save to Library
+                </button>
+                <button class="btn btn-primary" id="applyEditedTheme">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                    Apply Theme
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- JSZip for creating extension packages -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="./node_modules/jszip/dist/jszip.min.js" onerror="loadJSZipFallback()"></script>
+    <script>
+        // Fallback to CDN if local JSZip not found (for web mode)
+        function loadJSZipFallback() {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+            document.head.appendChild(script);
+        }
+    </script>
     
     <script src="theme-schema.js"></script>
     <script src="canvas-renderer.js"></script>

@@ -1,12 +1,15 @@
 /**
  * Theme Installer
  * Handles installing themes directly to VSCode/Cursor extensions folders
- * Uses File System Access API with ZIP fallback
+ * Works with both Electron native APIs and web File System Access API
  */
 
 class ThemeInstaller {
     constructor() {
-        // Extension paths by platform (used for hints, actual path selected by user)
+        // Check if we're running in Electron
+        this.isElectron = !!(window.electronAPI && window.electronAPI.isElectron);
+        
+        // Extension paths by platform (used for hints in web mode)
         this.extensionPaths = {
             cursor: {
                 mac: '~/.cursor/extensions',
@@ -20,8 +23,37 @@ class ThemeInstaller {
             }
         };
 
-        // Check for File System Access API support
+        // Check for File System Access API support (web fallback)
         this.hasFileSystemAccess = 'showDirectoryPicker' in window;
+        
+        // Cache extension paths in Electron mode
+        this._extensionPathsCache = null;
+    }
+
+    /**
+     * Get actual extension paths (Electron only)
+     */
+    async getExtensionPaths() {
+        if (!this.isElectron) {
+            return null;
+        }
+        
+        if (!this._extensionPathsCache) {
+            this._extensionPathsCache = await window.electronAPI.getExtensionPaths();
+        }
+        
+        return this._extensionPathsCache;
+    }
+
+    /**
+     * Check installations (Electron only)
+     */
+    async checkInstallations() {
+        if (!this.isElectron) {
+            return { cursor: { installed: false }, vscode: { installed: false } };
+        }
+        
+        return await window.electronAPI.checkInstallations();
     }
 
     /**
@@ -140,9 +172,59 @@ Generated with ❤️ by ThemeForge AI
     }
 
     /**
-     * Install theme directly to a folder using File System Access API
+     * Install theme directly using Electron native APIs
      */
-    async installToFolder(theme, targetApp = 'cursor') {
+    async installToFolderElectron(theme, targetApp = 'cursor') {
+        if (!this.isElectron) {
+            throw new Error('Native installation not available in web mode');
+        }
+
+        const extensionPackage = this.generateExtensionPackage(theme);
+        const installations = await this.checkInstallations();
+        const targetInfo = installations[targetApp];
+        
+        let extensionsPath;
+        
+        // If target app extensions folder exists, use it directly
+        if (targetInfo.installed) {
+            extensionsPath = targetInfo.path;
+        } else {
+            // Otherwise, let user select the directory
+            const result = await window.electronAPI.selectDirectory({
+                title: `Select ${targetApp === 'cursor' ? 'Cursor' : 'VS Code'} Extensions Folder`,
+                defaultPath: targetInfo.path
+            });
+            
+            if (result.canceled) {
+                throw new Error('Installation cancelled');
+            }
+            
+            extensionsPath = result.path;
+        }
+
+        // Install the theme
+        const result = await window.electronAPI.installTheme({
+            extensionsPath,
+            folderName: extensionPackage.folderName,
+            files: extensionPackage.files
+        });
+
+        if (!result.success) {
+            throw new Error(result.error || 'Failed to install theme');
+        }
+
+        return {
+            success: true,
+            folderName: extensionPackage.folderName,
+            path: result.path,
+            message: `Theme installed successfully! Restart ${targetApp === 'cursor' ? 'Cursor' : 'VS Code'} to apply.`
+        };
+    }
+
+    /**
+     * Install theme directly to a folder using File System Access API (web fallback)
+     */
+    async installToFolderWeb(theme, targetApp = 'cursor') {
         if (!this.hasFileSystemAccess) {
             throw new Error('File System Access API not supported. Please use the ZIP download option.');
         }
@@ -166,7 +248,7 @@ Generated with ❤️ by ThemeForge AI
 
             // Write all files
             for (const [filePath, content] of Object.entries(extensionPackage.files)) {
-                await this.writeFile(extensionFolderHandle, filePath, content);
+                await this.writeFileWeb(extensionFolderHandle, filePath, content);
             }
 
             return {
@@ -184,9 +266,9 @@ Generated with ❤️ by ThemeForge AI
     }
 
     /**
-     * Write a file to a directory handle (supports nested paths)
+     * Write a file to a directory handle (web File System Access API)
      */
-    async writeFile(directoryHandle, filePath, content) {
+    async writeFileWeb(directoryHandle, filePath, content) {
         const parts = filePath.split('/');
         const fileName = parts.pop();
         
@@ -201,6 +283,17 @@ Generated with ❤️ by ThemeForge AI
         const writable = await fileHandle.createWritable();
         await writable.write(content);
         await writable.close();
+    }
+
+    /**
+     * Install theme to folder (auto-selects method based on environment)
+     */
+    async installToFolder(theme, targetApp = 'cursor') {
+        if (this.isElectron) {
+            return this.installToFolderElectron(theme, targetApp);
+        } else {
+            return this.installToFolderWeb(theme, targetApp);
+        }
     }
 
     /**
@@ -242,17 +335,93 @@ Generated with ❤️ by ThemeForge AI
     async downloadAsZip(theme) {
         const { blob, fileName } = await this.createZipPackage(theme);
         
-        // Create download link
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        if (this.isElectron) {
+            // Use Electron's save dialog
+            const arrayBuffer = await blob.arrayBuffer();
+            const base64 = this.arrayBufferToBase64(arrayBuffer);
+            
+            const result = await window.electronAPI.saveFile({
+                defaultName: fileName,
+                content: base64,
+                filters: [
+                    { name: 'ZIP Archive', extensions: ['zip'] }
+                ]
+            });
+            
+            if (result.canceled) {
+                throw new Error('Save cancelled');
+            }
+            
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to save file');
+            }
+            
+            return { success: true, fileName: result.filePath };
+        } else {
+            // Web: Create download link
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            return { success: true, fileName };
+        }
+    }
 
-        return { success: true, fileName };
+    /**
+     * Download theme as JSON
+     */
+    async downloadAsJson(theme) {
+        const themeName = theme.name || 'generated-theme';
+        const themeSlug = themeName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        const fileName = `${themeSlug}.json`;
+        const content = JSON.stringify(theme, null, 2);
+        
+        if (this.isElectron) {
+            const result = await window.electronAPI.saveJson({
+                defaultName: fileName,
+                content: content
+            });
+            
+            if (result.canceled) {
+                throw new Error('Save cancelled');
+            }
+            
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to save file');
+            }
+            
+            return { success: true, fileName: result.filePath };
+        } else {
+            // Web: Create download link
+            const blob = new Blob([content], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            return { success: true, fileName };
+        }
+    }
+
+    /**
+     * Convert ArrayBuffer to Base64
+     */
+    arrayBufferToBase64(buffer) {
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
     }
 
     /**
@@ -285,10 +454,23 @@ If it doesn't exist, you can create it manually.
      * Check if we can use direct installation
      */
     canInstallDirectly() {
-        return this.hasFileSystemAccess;
+        return this.isElectron || this.hasFileSystemAccess;
+    }
+
+    /**
+     * Open extension folder in file manager (Electron only)
+     */
+    async openExtensionFolder(targetApp = 'cursor') {
+        if (!this.isElectron) {
+            return { success: false, error: 'Not available in web mode' };
+        }
+        
+        const paths = await this.getExtensionPaths();
+        const folderPath = paths[targetApp];
+        
+        return await window.electronAPI.openFolder(folderPath);
     }
 }
 
 // Export
 window.ThemeInstaller = ThemeInstaller;
-
